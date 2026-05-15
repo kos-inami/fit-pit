@@ -321,13 +321,10 @@ export default function RecordsPage() {
           </div>
         )}
 
-        {/* add movement — Workout + Run only */}
-        {activeTab !== "wl" && (
-          <Button onClick={() => setAddMovOpen(true)}>
-            + Add {CATEGORY_META[activeTab].label} Movement
-          </Button>
-        )}
-
+        {/* add movement */}
+        <Button onClick={() => setAddMovOpen(true)}>
+          + Add {CATEGORY_META[activeTab].label} Movement
+        </Button>
       </main>
 
       {/* ── Add Movement Sheet ── */}
