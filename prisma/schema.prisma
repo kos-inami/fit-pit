@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String      @id @default(cuid())
+  name       String
+  email      String      @unique
+  password   String
+  goal       String?
+  level      String?
+  box        String?
+  createdAt  DateTime    @default(now())
+  days       Day[]
+  maxRecords MaxRecord[]
+}
+
+model Day {
+  id           String        @id @default(cuid())
+  date         String
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  sessions     Session[]
+  recovery     Recovery?
+  aiSuggestion AISuggestion?
+  createdAt    DateTime      @default(now())
+
+  @@unique([userId, date])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  dayId        String
+  day          Day      @relation(fields: [dayId], references: [id])
+  type         String
+  name         String
+  desc         String?
+  result       String?
+  scale        String?
+  notes        String?
+  rounds       String?
+  resultRounds String?
+  planSets     String?   // planning targets (JSON)
+  sets         Set[]     // result sets (actual performance)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+}
+
+model Set {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id])
+  setNumber Int
+  weight    Float?
+  reps      Int?
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model Recovery {
+  id        String   @id @default(cuid())
+  dayId     String   @unique
+  day       Day      @relation(fields: [dayId], references: [id])
+  energy    Int
+  sore      String
+  sleep     String
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model AISuggestion {
+  id           String   @id @default(cuid())
+  dayId        String   @unique
+  day          Day      @relation(fields: [dayId], references: [id])
+  summary      String
+  perSession   String
+  chips        String
+  recoveryNote String?
+  createdAt    DateTime @default(now())
+}
+
+model MaxRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  movement    String
+  category    String   // "wl" | "workout" | "run"
+  details     String?
+  weight      Float?
+  reps        Int?
+  distance    Float?
+  timeSeconds Int?
+  notes       String?
+  date        String
+  createdAt   DateTime @default(now())
+}

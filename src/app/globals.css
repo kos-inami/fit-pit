@@ -1,26 +1,56 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg:      #080808;
+  --s1:      #101010;
+  --s2:      #161616;
+  --s3:      #1e1e1e;
+  --br:      #252525;
+  --br2:     #303030;
+  --acc:     #e8ff3c;
+  --red:     #ff4c2b;
+  --org:     #ff8c00;
+  --grn:     #3cffa0;
+  --blu:     #5cb8ff;
+  --tx:      #f0ede8;
+  --mu:      #eeeeee;
+  --mu2:     #aaaaaa;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  background: var(--bg);
+  color: var(--tx);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── TYPOGRAPHY ─────────────────────────────────────────────── */
+.font-display {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.05em;
+}
+
+.font-mono {
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── SCROLLBAR ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 0px; }
+
+/* ── UTILITY ────────────────────────────────────────────────── */
+.no-tap-highlight {
+  -webkit-tap-highlight-color: transparent;
+}
+
+main {
+  padding-bottom: 6rem
 }
