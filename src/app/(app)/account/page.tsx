@@ -24,10 +24,17 @@ function getThisWeekDates(): string[] {
     });
 }
 
-function isComplete(s: { sets: unknown[]; rounds: unknown[]; result: string | null; type: string }) {
+function isComplete(s: {
+    sets:         unknown[];
+    planSets:     unknown[];
+    rounds:       unknown[];
+    resultRounds: unknown[];
+    result:       string | null;
+    type:         string;
+    }) {
     const meta = SESSION_TYPE_META[s.type as SessionType];
-    if (meta.useSets) return s.sets.length > 0;
-    if (s.type === "wod" || s.type === "zone") return s.rounds.length > 0;
+    if (meta.useSets) return s.sets.length > 0;  // result sets only
+    if (s.type === "wod" || s.type === "zone") return s.resultRounds.length > 0;  // result rounds only
     return s.result !== null;
 }
 
