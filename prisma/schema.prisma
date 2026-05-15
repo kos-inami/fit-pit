@@ -8,16 +8,22 @@ datasource db {
 }
 
 model User {
-  id         String      @id @default(cuid())
-  name       String
-  email      String      @unique
-  password   String
-  goal       String?
-  level      String?
-  box        String?
-  createdAt  DateTime    @default(now())
-  days       Day[]
-  maxRecords MaxRecord[]
+  id                 String      @id @default(cuid())
+  name               String
+  email              String      @unique
+  password           String
+  primaryGoal        String?
+  levelCrossFit      String?
+  levelWorkout       String?
+  levelWeightLifting String?
+  levelCardio        String?
+  levelRunning       String?
+  weight             Float?
+  height             Float?
+  age                Int?
+  createdAt          DateTime    @default(now())
+  days               Day[]
+  maxRecords         MaxRecord[]
 }
 
 model Day {
