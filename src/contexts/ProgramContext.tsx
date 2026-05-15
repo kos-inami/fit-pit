@@ -49,6 +49,7 @@ interface ProgramContextType {
   setAILoading:  (date: string, id: string, loading: boolean) => void;
   setDayAI:      (date: string, ai: AIResult) => void;
   saveRecovery:  (date: string, rec: RecoveryLog) => Promise<void>;
+  deleteRecovery: (date: string) => Promise<void>;
 }
 
 const ProgramContext = createContext<ProgramContextType | null>(null);
@@ -352,12 +353,24 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     } catch { console.error("Failed to save recovery"); }
   }, [updateDay, ensureDayId]);
 
+  // -- delete Recovery ---
+  const deleteRecovery = useCallback(async (date: string) => {
+    const dayId = days[date]?.id;
+    updateDay(date, d => ({ ...d, recovery: null }));
+    if (!dayId) return;
+    try {
+      await fetch(`/api/recovery?dayId=${dayId}`, { method: "DELETE" });
+    } catch {
+      console.error("Failed to delete recovery");
+    }
+  }, [days, updateDay]);
+
   return (
     <ProgramContext.Provider value={{
       days, getDay,
       addSession, editSession, removeSession,
       saveResult, setAINote, setAILoading,
-      setDayAI, saveRecovery,
+      setDayAI, saveRecovery, deleteRecovery,
     }}>
       {children}
     </ProgramContext.Provider>

@@ -21,3 +21,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Failed to save recovery" }, { status: 500 });
     }
 }
+
+export async function DELETE(req: NextRequest) {
+    const { searchParams } = new URL(req.url);
+    const dayId = searchParams.get("dayId");
+
+    if (!dayId) {
+        return NextResponse.json({ error: "dayId required" }, { status: 400 });
+    }
+
+    try {
+        await db.recovery.delete({ where: { dayId } });
+        return NextResponse.json({ success: true });
+    } catch {
+        return NextResponse.json({ error: "Failed to delete recovery" }, { status: 500 });
+    }
+}

@@ -74,7 +74,7 @@ export default function ProgramPage() {
     days, getDay,
     addSession, editSession, removeSession,
     saveResult, setAINote, setAILoading,
-    saveRecovery,
+    saveRecovery, deleteRecovery,
   } = useProgram();
 
   const [weekOffset,   setWeekOffset]   = useState(0);
@@ -163,6 +163,12 @@ export default function ProgramPage() {
     saveRecovery(selectedDate, data);
     setRecoveryOpen(false);
     showFlash("Recovery logged");
+  };
+
+  const handleDeleteRecovery = () => {
+    deleteRecovery(selectedDate);
+    setRecoveryOpen(false);
+    showFlash("Recovery removed");
   };
 
   const handleCalendarSelect = (date: string) => {
@@ -720,6 +726,8 @@ export default function ProgramPage() {
         open={recoveryOpen}
         onClose={() => setRecoveryOpen(false)}
         onSave={handleRecovery}
+        onDelete={selectedDay.recovery ? handleDeleteRecovery : undefined}
+        initial={selectedDay.recovery}
       />
 
       <CalendarSheet

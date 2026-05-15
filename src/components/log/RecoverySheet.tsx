@@ -20,12 +20,16 @@ const BODY_PARTS = [
 ];
 
 interface RecoverySheetProps {
-  open:    boolean;
-  onClose: () => void;
-  onSave:  (data: RecoveryLog) => void;
+  open:      boolean;
+  onClose:   () => void;
+  onSave:    (data: RecoveryLog) => void;
+  onDelete?: () => void;
+  initial?:  RecoveryLog | null;
 }
 
-export default function RecoverySheet({ open, onClose, onSave }: RecoverySheetProps) {
+export default function RecoverySheet({
+  open, onClose, onSave, onDelete, initial,
+  }: RecoverySheetProps) {
   const [energy, setEnergy] = useState<number | null>(null);
   const [sore,   setSore]   = useState<string[]>([]);
   const [sleep,  setSleep]  = useState("6–8h — decent");
@@ -124,6 +128,16 @@ export default function RecoverySheet({ open, onClose, onSave }: RecoverySheetPr
       <Button onClick={handleSave}>Complete Day</Button>
       <div className="h-2" />
       <Button variant="outline" onClick={onClose}>Skip Recovery</Button>
+      
+      {/* delete — only show when editing existing recovery */}
+      {onDelete && (
+        <>
+          <div className="h-[1px] my-5" style={{ background: "var(--br)" }} />
+          <Button variant="danger" onClick={onDelete}>
+            Remove Recovery
+          </Button>
+        </>
+      )}
     </Sheet>
   );
 }

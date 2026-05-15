@@ -3,12 +3,8 @@
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import TopNav from "@/components/ui/TopNav";
-import Link from "next/link";
 import { useProgram } from "@/contexts/ProgramContext";
 import { SESSION_TYPE_META, SessionType } from "@/types";
-
-// ─── helpers ─────────────────────────────────────────────────
-const TODAY_STR = new Date().toISOString().split("T")[0];
 
 function isComplete(s: {
     sets: unknown[]; planSets: unknown[];
@@ -207,33 +203,45 @@ export default function AccountPage() {
             </div>
 
             {/* ── avg recovery ── */}
-            {recoveredDays.length > 0 && (
-            <>
-                <SectionLabel>Avg Recovery</SectionLabel>
-                <div
+            <SectionLabel>Avg Recovery</SectionLabel>
+            {recoveredDays.length > 0 ? (
+            <div
                 className="rounded-[12px] px-4 py-4 flex items-center gap-4 mb-5"
                 style={{ background: "var(--s1)", border: "1px solid var(--br)" }}
-                >
+            >
                 <div
-                    className="w-[48px] h-[48px] rounded-full flex items-center justify-center flex-shrink-0 text-[22px]"
-                    style={{
+                className="w-[48px] h-[48px] rounded-full flex items-center justify-center flex-shrink-0 text-[22px]"
+                style={{
                     background: FEEL_COLOR[avgEnergy] + "22",
                     border:     `1px solid ${FEEL_COLOR[avgEnergy]}`,
-                    }}
+                }}
                 >
-                    {FEEL_EMOJI[avgEnergy]}
+                {FEEL_EMOJI[avgEnergy]}
                 </div>
                 <div>
-                    <div className="text-[16px] font-medium" style={{ color: FEEL_COLOR[avgEnergy] }}>
+                <div className="text-[16px] font-medium" style={{ color: FEEL_COLOR[avgEnergy] }}>
                     {FEEL_LABEL[avgEnergy]}
-                    </div>
-                    <div className="text-[11px] mt-[2px]"
+                </div>
+                <div className="text-[11px] mt-[2px]"
                     style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
                     Based on {recoveredDays.length} logged days
-                    </div>
                 </div>
                 </div>
-            </>
+            </div>
+            ) : (
+            <div
+                className="rounded-[12px] px-4 py-5 mb-5 text-center"
+                style={{ background: "var(--s1)", border: "1px dashed var(--br2)" }}
+            >
+                <div className="text-[20px] mb-2">😴</div>
+                <div className="text-[13px] mb-1" style={{ color: "var(--mu2)" }}>
+                No recovery logged yet
+                </div>
+                <div className="text-[11px]"
+                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                Log recovery after your sessions to track readiness
+                </div>
+            </div>
             )}
 
             {/* ── type breakdown ── */}
