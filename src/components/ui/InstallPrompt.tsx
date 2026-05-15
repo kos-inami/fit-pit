@@ -7,11 +7,30 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+function isInStandaloneMode() {
+  return window.matchMedia("(display-mode: standalone)").matches;
+}
+
 export default function InstallPrompt() {
-  const [prompt,  setPrompt]  = useState<BeforeInstallPromptEvent | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [prompt,     setPrompt]     = useState<BeforeInstallPromptEvent | null>(null);
+  const [showIOS,    setShowIOS]    = useState(false);
+  const [visible,    setVisible]    = useState(false);
 
   useEffect(() => {
+    // don't show if already installed
+    if (isInStandaloneMode()) return;
+
+    if (isIOS()) {
+      // show iOS instructions after a short delay
+      const t = setTimeout(() => setShowIOS(true), 3000);
+      return () => clearTimeout(t);
+    }
+
+    // Android / desktop Chrome
     const handler = (e: Event) => {
       e.preventDefault();
       setPrompt(e as BeforeInstallPromptEvent);
@@ -28,6 +47,66 @@ export default function InstallPrompt() {
     if (choice.outcome === "accepted") setVisible(false);
   };
 
+  // iOS prompt
+  if (showIOS) {
+    return (
+      <div
+        className="fixed bottom-20 left-1/2 -translate-x-1/2 w-[calc(100%-36px)] max-w-[394px] z-[60] rounded-[14px] p-4"
+        style={{
+          background: "var(--s1)",
+          border:     "1px solid var(--br2)",
+          boxShadow:  "0 8px 32px rgba(0,0,0,0.6)",
+          animation:  "slideUp .3s cubic-bezier(.16,1,.3,1)",
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className="w-[44px] h-[44px] rounded-[10px] flex items-center justify-center flex-shrink-0 text-[22px]"
+            style={{ background: "var(--acc)" }}
+          >
+            🏋️
+          </div>
+          <div className="flex-1">
+            <div className="text-[14px] font-medium mb-1">Install Fit Pit</div>
+            <div
+              className="text-[12px] leading-relaxed"
+              style={{ fontFamily: "'DM Sans', sans-serif", color: "var(--mu2)" }}
+            >
+              Tap{" "}
+              <span style={{ color: "var(--acc)" }}>
+                Share <span style={{ fontSize: 14 }}>⎋</span>
+              </span>
+              {" "}then{" "}
+              <span style={{ color: "var(--acc)" }}>
+                Add to Home Screen
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowIOS(false)}
+            style={{ background: "none", border: "none", color: "var(--mu)", cursor: "pointer", fontSize: 18, flexShrink: 0 }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* arrow pointing to bottom */}
+        <div
+          className="absolute -bottom-[9px] left-1/2 -translate-x-1/2 w-[16px] h-[16px] rotate-45"
+          style={{ background: "var(--s1)", border: "1px solid var(--br2)", borderTop: "none", borderLeft: "none" }}
+        />
+
+        <style>{`
+          @keyframes slideUp {
+            from { opacity:0; transform:translate(-50%, 20px); }
+            to   { opacity:1; transform:translate(-50%, 0); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Android / desktop Chrome prompt
   if (!visible) return null;
 
   return (
@@ -48,9 +127,7 @@ export default function InstallPrompt() {
           🏋️
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[14px] font-medium">
-            Install Fit Pit
-          </div>
+          <div className="text-[14px] font-medium">Install Fit Pit</div>
           <div
             className="text-[11px]"
             style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
