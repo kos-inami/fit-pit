@@ -134,7 +134,7 @@ export default function RoundLogger({ rounds, onChange }: RoundLoggerProps) {
                         Workout Details
                         </label>
                         <textarea
-                            rows={6}
+                            rows={3}
                             placeholder="e.g. 5 Pull-ups / 10 Push-ups / 15 Air Squats"
                             value={round.details}
                             onChange={e => update(i, "details", e.target.value)}
