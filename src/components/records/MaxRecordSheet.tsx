@@ -5,6 +5,7 @@ import Sheet from "@/components/ui/Sheet";
 import Button from "@/components/ui/Button";
 import { Input, Textarea, Label, Select } from "@/components/ui/Input";
 import { RecordType, MaxRecordEntry, formatRecordValue } from "@/types";
+import { getTodayString } from "@/lib/utils";
 
 const RECORD_TYPES: { value: RecordType; label: string; placeholder: string }[] = [
   { value: "weight",   label: "Weight (kg)",  placeholder: "e.g. 102.5"  },
@@ -28,7 +29,7 @@ export default function MaxRecordSheet({
   const [value,    setValue]    = useState(editEntry?.value?.toString() ?? "");
   const [notes,    setNotes]    = useState(editEntry?.notes ?? "");
   const [date,     setDate]     = useState(
-    editEntry?.date ?? new Date().toISOString().split("T")[0]
+    editEntry?.date ?? getTodayString()
   );
 
   const typeMeta  = RECORD_TYPES.find(t => t.value === type)!;
@@ -37,7 +38,7 @@ export default function MaxRecordSheet({
 
   const reset = () => {
     setMovement(""); setType("weight"); setValue(""); setNotes("");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(getTodayString());
   };
 
   const handleSave = () => {

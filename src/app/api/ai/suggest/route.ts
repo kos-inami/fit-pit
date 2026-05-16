@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
+import { getTodayString } from "@/lib/utils";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   if (userId) {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getTodayString();
 
       const pastDays = await db.day.findMany({
         where: {

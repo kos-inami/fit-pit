@@ -12,9 +12,10 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import TypeChip from "@/components/session/TypeChip";
 import { useProgram, ProgSession } from "@/contexts/ProgramContext";
 import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry, RecoveryLog } from "@/types";
+import { getLocalDateString, getTodayString } from "@/lib/utils";
 
 // ─── helpers ─────────────────────────────────────────────────
-const TODAY_STR   = new Date().toISOString().split("T")[0];
+const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
 const FEEL_COLOR  = ["#5cb8ff","#e8ff3c","#3cffa0","#ff9055","#ff4c2b"];
 const FEEL_LABEL  = ["Spent","Okay","Good","Pumped","Beast"];
@@ -28,7 +29,7 @@ function getWeekDates(offset: number): string[] {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(mon);
     d.setDate(mon.getDate() + i);
-    return d.toISOString().split("T")[0];
+    return getLocalDateString(d);
   });
 }
 

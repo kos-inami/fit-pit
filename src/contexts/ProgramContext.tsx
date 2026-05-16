@@ -6,6 +6,7 @@ import {
 } from "react";
 import { useSession } from "next-auth/react";
 import { SessionType, SetLog, RoundEntry, RecoveryLog } from "@/types";
+import { getLocalDateString } from "@/lib/utils";
 
 // ─── types ───────────────────────────────────────────────────
 export interface ProgSession {
@@ -65,13 +66,13 @@ function getWeekAndRecentDates(): string[] {
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(mon);
     d.setDate(mon.getDate() + i);
-    return d.toISOString().split("T")[0];
+    return getLocalDateString(d);
   });
 
   const past = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(mon);
     d.setDate(mon.getDate() - i - 1);
-    return d.toISOString().split("T")[0];
+    return getLocalDateString(d);
   });
 
   return [...new Set([...week, ...past])];

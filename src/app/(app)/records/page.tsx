@@ -7,6 +7,7 @@ import Sheet from "@/components/ui/Sheet";
 import Button from "@/components/ui/Button";
 import { Input, Textarea, Label } from "@/components/ui/Input";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { getTodayString } from "@/lib/utils";
 
 // ─── types ───────────────────────────────────────────────────
 type Category = "wl" | "workout" | "run";
@@ -609,14 +610,14 @@ function LogRecordSheet({
   );
   const [notes,    setNotes]    = useState(initial?.notes ?? "");
   const [date,     setDate]     = useState(
-    initial?.date ?? new Date().toISOString().split("T")[0]
+    initial?.date ?? getTodayString()
   );
 
   const meta = CATEGORY_META[category];
 
   const reset = () => {
     setWeight(""); setReps(""); setDistance(""); setTimeStr(""); setNotes("");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(getTodayString());
   };
 
   const canSave =

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getTodayString } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
         distance:    distance    ?? null,
         timeSeconds: timeSeconds ?? null,
         notes:       notes       ?? "",
-        date:        date        ?? new Date().toISOString().split("T")[0],
+        date:        date        ?? getTodayString(),
       },
     });
     return NextResponse.json({ record }, { status: 201 });
