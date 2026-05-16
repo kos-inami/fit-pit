@@ -175,6 +175,7 @@ export default function AddSessionSheet({
         label="Description / Workout Details"
         placeholder={useSets ? "e.g. 5×5 Back Squat @ 85%" : "e.g. 21-15-9 Thrusters / Pull-ups"}
         value={desc}
+        rows={6}
         onChange={e => setDesc(e.target.value)}
       />
 
