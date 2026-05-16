@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sheet from "@/components/ui/Sheet";
 import Button from "@/components/ui/Button";
 import { Textarea, Label } from "@/components/ui/Input";
@@ -22,17 +22,29 @@ interface LogResultSheetProps {
   onDelete?:            () => void;
   initialSets?:         SetLog[];
   initialResultRounds?: RoundEntry[];
+  initialResult?:       string;
+  initialNotes?:        string;
 }
 
 export default function LogResultSheet({
   open, onClose, session, onSave, onDelete,
   initialSets = [], initialResultRounds = [],
+  initialResult = "", initialNotes = "",
 }: LogResultSheetProps) {
-  const [result, setResult] = useState("");
-  const [notes,  setNotes]  = useState("");
+  const [result, setResult] = useState(initialResult);
+  const [notes,  setNotes]  = useState(initialNotes);
   const [sets,   setSets]   = useState<SetLog[]>(initialSets);
   const [rounds, setRounds] = useState<RoundEntry[]>(initialResultRounds);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // sync state when props change (handles reopen of same session)
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setResult(initialResult);
+      setNotes(initialNotes);
+    }, 0);
+    return () => clearTimeout(id);
+  }, [initialResult, initialNotes]);
 
   if (!session) return null;
 
@@ -41,13 +53,13 @@ export default function LogResultSheet({
   const useRounds = session.type === "wod" || session.type === "zone";
 
   const canSave =
-    useSets    ? sets.length > 0   :
-    useRounds  ? rounds.length > 0 :
+    useSets   ? (sets.length > 0   || result.trim().length > 0) :
+    useRounds ? (rounds.length > 0 || result.trim().length > 0) :
     result.trim().length > 0;
 
   const handleSave = () => {
-    if (useSets)        onSave({ notes, sets });
-    else if (useRounds) onSave({ notes, resultRounds: rounds });
+    if (useSets)        onSave({ result: result.trim(), notes, sets });
+    else if (useRounds) onSave({ result: result.trim(), notes, resultRounds: rounds });
     else                onSave({ result: result.trim(), notes });
     setResult(""); setNotes(""); setSets([]); setRounds([]);
     onClose();
@@ -58,6 +70,7 @@ export default function LogResultSheet({
     setConfirmDelete(false);
     onClose();
   };
+
   return (
     <Sheet open={open} onClose={handleClose}>
       {/* header */}
@@ -80,6 +93,18 @@ export default function LogResultSheet({
           <p className="text-[12px] leading-relaxed" style={{ color: "#b8d4c8" }}>
             {session.aiNote}
           </p>
+        </div>
+      )}
+
+      {/* result comment — WOD / Zone / Strength / WL / Accessory */}
+      {(useSets || useRounds) && (
+        <div className="mt-[0.5rem]">
+          <Textarea
+            label="Result"
+            placeholder="e.g. New PR! Finished in 5:32..."
+            value={result}
+            onChange={e => setResult(e.target.value)}
+          />
         </div>
       )}
 
@@ -106,7 +131,7 @@ export default function LogResultSheet({
         </div>
       )}
 
-      {/* free text — Run / other */}
+      {/* free text result — Run / other */}
       {!useSets && !useRounds && (
         <Textarea
           label="Result"
@@ -126,36 +151,37 @@ export default function LogResultSheet({
       <Button onClick={handleSave} disabled={!canSave}>Save Result</Button>
       <div className="h-2" />
       <Button variant="outline" onClick={handleClose}>Cancel</Button>
+
       {onDelete && (
-      <>
-        <div className="h-[1px] my-5" style={{ background: "var(--br)" }} />
-        {confirmDelete ? (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="flex-1 rounded-[8px] py-[11px] text-[12px] cursor-pointer"
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                background: "transparent",
-                border:     "1px solid var(--br2)",
-                color:      "var(--mu2)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => { setConfirmDelete(false); onDelete(); }}
-              className="flex-1 rounded-[8px] py-[11px] text-[13px] tracking-[1px] cursor-pointer"
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                background: "var(--red)",
-                border:     "none",
-                color:      "#fff",
-              }}
-            >
-              Yes, Delete
-            </button>
-          </div>
+        <>
+          <div className="h-[1px] my-5" style={{ background: "var(--br)" }} />
+          {confirmDelete ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 rounded-[8px] py-[11px] text-[12px] cursor-pointer"
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  background: "transparent",
+                  border:     "1px solid var(--br2)",
+                  color:      "var(--mu2)",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setConfirmDelete(false); onDelete(); }}
+                className="flex-1 rounded-[8px] py-[11px] text-[13px] tracking-[1px] cursor-pointer"
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  background: "var(--red)",
+                  border:     "none",
+                  color:      "#fff",
+                }}
+              >
+                Yes, Delete
+              </button>
+            </div>
           ) : (
             <button
               onClick={() => setConfirmDelete(true)}

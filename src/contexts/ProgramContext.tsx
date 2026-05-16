@@ -286,19 +286,19 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     }));
     try {
       if (data.sets !== undefined) {
-        // save result sets to Set relation
         await fetch(`/api/sessions/${id}/sets`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({ sets: data.sets }),
         });
-        if (data.notes !== undefined) {
-          await fetch(`/api/sessions/${id}/result`, {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ notes: data.notes }),
-          });
-        }
+        await fetch(`/api/sessions/${id}/result`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            result: data.result ?? null,
+            notes:  data.notes  ?? null,
+          }),
+        });
       } else {
         await fetch(`/api/sessions/${id}/result`, {
           method:  "POST",

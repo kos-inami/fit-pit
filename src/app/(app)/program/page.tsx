@@ -36,10 +36,11 @@ function getWeekDates(offset: number): string[] {
 }
 
 function isDone(s: ProgSession): boolean {
+  if (s.result !== null && s.result.trim() !== "") return true;
   const meta = SESSION_TYPE_META[s.type];
   if (meta.useSets) return s.sets.length > 0;
   if (s.type === "wod" || s.type === "zone") return s.resultRounds.length > 0;
-  return s.result !== null;
+  return false;
 }
 
 async function fetchAI(
@@ -91,6 +92,8 @@ const {
   const [flash,        setFlash]        = useState<string | null>(null);
   const [copyTarget, setCopyTarget] = useState<ProgSession | null>(null);
   const [copyDate,   setCopyDate]   = useState(TODAY_STR);
+  const [logCounter, setLogCounter] = useState(0);
+
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
@@ -217,6 +220,11 @@ const {
 
     return () => clearTimeout(id);
   }, [searchParams]);
+
+  const openLogSheet = (s: ProgSession) => {
+    setLogCounter(c => c + 1);
+    setLogTarget(s);
+  };
 
   // ────────────────────────────────────────────────────────
   return (
@@ -550,6 +558,14 @@ const {
                 </div>
               )}
 
+
+              {/* ── RESULT: comment (all types) ── */}
+              {s.result && (
+                <div className="p-[0.5rem] mb-[0.5rem]">
+                  <p className="text-[13px]" style={{ color: meta.color }}>{s.result}</p>
+                </div>
+              )}
+
               {/* ── RESULT: sets (Strength/WL/Accessory) ── */}
               {meta.useSets && s.sets.length > 0 && (
                 <div className="mx-4 mb-3 p-[0.5rem]">
@@ -639,15 +655,6 @@ const {
                 </div>
               )}
 
-              {/* ── RESULT: free text (Run/other) ── */}
-              {!meta.useSets && s.type !== "wod" && s.type !== "zone" && s.result && (
-                <div className="mx-4 mb-3 p-[0.5rem]">
-                  <p className="text-[14px]" style={{ color: meta.color }}>
-                    {s.result}
-                  </p>
-                </div>
-              )}
-
               {/* notes */}
               {s.notes && (
                 <div className="mx-4 mb-3 p-[0.5rem]">
@@ -693,7 +700,7 @@ const {
                 </button>
 
                 <button
-                  onClick={() => setLogTarget(s)}
+                  onClick={() => openLogSheet(s)}
                   className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
                   style={{
                     fontFamily:  "'DM Mono', monospace",
@@ -754,7 +761,7 @@ const {
       />
 
       <LogResultSheet
-        key={logTarget?.id ?? "log-closed"}
+        key={logTarget ? `${logTarget.id}-${logCounter}` : "log-closed"}
         open={logTarget !== null}
         onClose={() => setLogTarget(null)}
         session={logTarget}
@@ -775,6 +782,8 @@ const {
             ? logTarget.resultRounds
             : logTarget?.rounds ?? []
         }
+        initialResult={logTarget?.result ?? ""}
+        initialNotes={logTarget?.notes  ?? ""}
       />
 
       <RecoverySheet
