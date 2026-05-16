@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Sheet from "@/components/ui/Sheet";
 import Button from "@/components/ui/Button";
-import { Textarea } from "@/components/ui/Input";
 import { RecoveryLog } from "@/types";
 
 interface RecoverySheetProps {
@@ -15,11 +14,11 @@ interface RecoverySheetProps {
 }
 
 const ENERGY_LEVELS = [
-  { value: 5, label: "Excellent", color: "#3cffa0", emoji: "⚡" },
-  { value: 4, label: "Good",      color: "#a8ff78", emoji: "💪" },
-  { value: 3, label: "Moderate",  color: "#e8ff3c", emoji: "🙂" },
-  { value: 2, label: "Low",       color: "#ff9055", emoji: "😐" },
   { value: 1, label: "Exhausted", color: "#ff4c2b", emoji: "😴" },
+  { value: 2, label: "Low",       color: "#ff9055", emoji: "😐" },
+  { value: 3, label: "Moderate",  color: "#e8ff3c", emoji: "🙂" },
+  { value: 4, label: "Good",      color: "#a8ff78", emoji: "💪" },
+  { value: 5, label: "Excellent", color: "#3cffa0", emoji: "⚡" },
 ];
 
 const SORE_AREAS = [
@@ -65,73 +64,79 @@ export default function RecoverySheet({
     });
   };
 
-  const selectedEnergy = ENERGY_LEVELS.find(e => e.value === energy);
-
   return (
     <Sheet open={open} onClose={onClose} title="Recovery Check">
 
       {/* ── 1. Overall Energy ── */}
-      <div className="mb-5">
-        <div className="text-[10px] tracking-[2px] uppercase mb-3"
+      <div style={{
+        borderBottom: "1px solid var(--br)",
+        marginBottom: "1rem",
+        paddingBottom: "0.5rem",
+      }}>
+        <div className="text-[10px] tracking-[2px] uppercase my-[0.25rem]"
           style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
           Overall Energy
         </div>
-        <div className="space-y-[6px]">
+        <div className="space-y-[6px] flex gap-[6] mb-[0.5rem]">
           {ENERGY_LEVELS.map(e => (
             <button
               key={e.value}
               onClick={() => setEnergy(e.value)}
-              className="w-full flex items-center gap-3 px-4 py-[11px] rounded-[10px] cursor-pointer transition-all text-left"
+              className="w-full flex-col items-center gap-3 px-4 py-[11px] rounded-[10px] cursor-pointer transition-all text-left"
               style={{
                 background: energy === e.value ? e.color + "18" : "var(--s2)",
                 border:     `1px solid ${energy === e.value ? e.color : "var(--br)"}`,
               }}
             >
-              <span className="text-[18px] flex-shrink-0">{e.emoji}</span>
-              <div className="flex items-center gap-2 flex-1">
-                <span
-                  className="text-[15px] tracking-[1px]"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: energy === e.value ? e.color : "var(--tx)" }}
-                >
-                  {e.value}
-                </span>
-                <span
-                  className="text-[13px]"
-                  style={{ color: energy === e.value ? e.color : "var(--mu2)" }}
-                >
-                  {e.label}
-                </span>
+              <div className="flex-col text-center">
+                <div className="text-[18px] flex-shrink-0">{e.emoji}</div>
+                <div className="text-[12px]">
+                  <span
+                    className="tracking-[1px] pr-[0.25rem]"
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", color: energy === e.value ? e.color : "var(--mu2)" }}
+                  >
+                    {e.value}
+                  </span>
+                  <span
+                    style={{ color: energy === e.value ? e.color : "var(--mu2)" }}
+                  >
+                    {e.label}
+                  </span>
+                </div>
+                {energy === e.value && (
+                  <span className="text-[11px] flex-shrink-0"
+                    style={{ color: e.color, fontFamily: "'DM Mono', monospace" }}>
+                  </span>
+                )}
               </div>
-              {energy === e.value && (
-                <span className="text-[11px] flex-shrink-0"
-                  style={{ color: e.color, fontFamily: "'DM Mono', monospace" }}>
-                  ✓
-                </span>
-              )}
             </button>
           ))}
         </div>
       </div>
-
+      
       {/* ── 2. Sore & Tight Areas ── */}
-      <div className="mb-5">
-        <div className="text-[10px] tracking-[2px] uppercase mb-3"
+      <div style={{
+        borderBottom: "1px solid var(--br)",
+        marginBottom: "1rem",
+        paddingBottom: "0.5rem",
+      }}>
+        <div className="text-[10px] tracking-[2px] uppercase mb-[0.5rem]"
           style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
           Sore &amp; Tight Areas
         </div>
-        <div className="flex flex-wrap gap-[7px] mb-3">
+        <div className="grid grid-cols-3 gap-[7px] mb-[0.5rem]">
           {SORE_AREAS.map(area => {
             const selected = sore.includes(area);
             return (
               <button
                 key={area}
                 onClick={() => toggleSore(area)}
-                className="px-3 py-[7px] rounded-full text-[11px] cursor-pointer transition-all"
+                className="px-3 py-[7px] rounded-[10px] text-[11px] cursor-pointer transition-all"
                 style={{
                   fontFamily: "'DM Mono', monospace",
                   background: selected ? "var(--red)" : "var(--s2)",
                   border:     `1px solid ${selected ? "var(--red)" : "var(--br)"}`,
-                  color:      selected ? "#fff" : "var(--mu2)",
+                  color:      selected ? "#fff" : "var(--mu)",
                 }}
               >
                 {area}
@@ -150,17 +155,22 @@ export default function RecoverySheet({
             border:     "1px solid var(--br)",
             color:      "var(--tx)",
             fontFamily: "'DM Sans', sans-serif",
+            padding:    "0.5rem",
           }}
         />
       </div>
 
       {/* ── 3. Sleep ── */}
-      <div className="mb-5">
-        <div className="text-[10px] tracking-[2px] uppercase mb-3"
+      <div style={{
+        borderBottom: "1px solid var(--br)",
+        marginBottom: "1rem",
+        paddingBottom: "1rem",
+      }}>
+        <div className="text-[10px] tracking-[2px] uppercase mb-[0.5rem]"
           style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
           Sleep Last Night
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-[6]">
           <div>
             <div className="text-[10px] tracking-[1px] uppercase mb-1"
               style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
@@ -178,6 +188,7 @@ export default function RecoverySheet({
                 border:     "1px solid var(--br)",
                 color:      "var(--tx)",
                 fontFamily: "'DM Mono', monospace",
+                padding:    "0.5rem",
               }}
             />
           </div>
@@ -196,6 +207,7 @@ export default function RecoverySheet({
                 color:      sleepQuality ? "var(--tx)" : "var(--mu)",
                 fontFamily: "'DM Sans', sans-serif",
                 cursor:     "pointer",
+                padding:    "0.5rem",
               }}
             >
               <option value={0}>— Rate —</option>
@@ -210,8 +222,12 @@ export default function RecoverySheet({
       </div>
 
       {/* ── 4. Anything else ── */}
-      <div className="mb-5">
-        <div className="text-[10px] tracking-[2px] uppercase mb-2"
+      <div style={{
+        borderBottom: "1px solid var(--br)",
+        marginBottom: "0.5rem",
+        paddingBottom: "0.5rem",
+      }}>
+        <div className="text-[10px] tracking-[2px] uppercase mb-[0.5rem]"
           style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
           Anything Else
         </div>
@@ -226,6 +242,7 @@ export default function RecoverySheet({
             border:     "1px solid var(--br)",
             color:      "var(--tx)",
             fontFamily: "'DM Sans', sans-serif",
+            padding:    "0.5rem",
           }}
         />
       </div>
