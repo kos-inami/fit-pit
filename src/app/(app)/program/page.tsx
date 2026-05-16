@@ -14,6 +14,7 @@ import { useProgram, ProgSession } from "@/contexts/ProgramContext";
 import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry, RecoveryLog } from "@/types";
 import { getLocalDateString, getTodayString } from "@/lib/utils";
 
+
 // ─── helpers ─────────────────────────────────────────────────
 const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
@@ -87,6 +88,8 @@ export default function ProgramPage() {
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [confirmId,    setConfirmId]    = useState<string | null>(null);
   const [flash,        setFlash]        = useState<string | null>(null);
+  const [copyTarget, setCopyTarget] = useState<ProgSession | null>(null);
+  const [copyDate,   setCopyDate]   = useState(TODAY_STR);
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
@@ -178,6 +181,23 @@ export default function ProgramPage() {
     );
     setWeekOffset(Math.floor(diffDays / 7));
     setSelectedDate(date);
+  };
+
+  const handleCopy = () => {
+    if (!copyTarget) return;
+    addSession(copyDate, {
+      type:         copyTarget.type,
+      name:         copyTarget.name,
+      desc:         copyTarget.desc,
+      planSets:     copyTarget.planSets,
+      rounds:       copyTarget.rounds,
+      sets:         [],
+      result:       null,
+      notes:        null,
+      resultRounds: [],
+    });
+    setCopyTarget(null);
+    showFlash(`Copied to ${copyDate}`);
   };
 
   // ────────────────────────────────────────────────────────
@@ -373,7 +393,7 @@ export default function ProgramPage() {
                       style={{ background: "var(--grn)", animation: "pulse 2s infinite" }}
                     />
                     <span
-                      className="text-[9px] tracking-[2px] uppercase"
+                      className="text-[12px] tracking-[2px] uppercase"
                       style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}
                     >
                       Coach Note
@@ -389,7 +409,7 @@ export default function ProgramPage() {
               {meta.useSets && s.planSets.length > 0 && (
                 <div className="mx-4 mb-3 p-[0.5rem]">
                   <div
-                    className="text-[9px] tracking-[1.5px] uppercase mb-[0.25rem]"
+                    className="text-[12px] tracking-[1.5px] uppercase mb-[0.25rem]"
                     style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
                   >
                     Planned Sets
@@ -425,7 +445,7 @@ export default function ProgramPage() {
                       >
                         {set.reps ?? "—"}
                       </span>
-                      <span className="text-[11px]" style={{ color: "var(--mu)" }}>
+                      <span className="text-[12px]" style={{ color: "var(--mu)" }}>
                         {set.notes || "—"}
                       </span>
                     </div>
@@ -437,7 +457,7 @@ export default function ProgramPage() {
               {(s.type === "wod" || s.type === "zone") && s.rounds.length > 0 && (
                 <div className="mx-4 mb-3 p-[0.5rem]">
                   <div
-                    className="text-[9px] tracking-[1.5px] uppercase mb-[0.25rem]"
+                    className="text-[12px] tracking-[1.5px] uppercase mb-[0.25rem]"
                     style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
                   >
                     Workout Plan
@@ -445,18 +465,18 @@ export default function ProgramPage() {
                   {s.rounds.map(r => (
                     <div
                       key={r.roundNumber}
-                      className="rounded-[7px] px-3 py-2 mb-1"
+                      className="rounded-[8px] p-[0.5rem] mb-[0.5rem]"
                       style={{ background: "var(--s2)", border: "1px solid var(--br)" }}
                     >
                       <div
-                        className="text-[11px] tracking-[1px] mb-[2px]"
-                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--mu2)" }}
+                        className="text-[14px] tracking-[1px] mb-[2px]"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: `${meta.color}` }}
                       >
                         Round {r.roundNumber}
                       </div>
                       {r.details && (
                         <div
-                          className="text-[11px] whitespace-pre-line"
+                          className="text-[12px] whitespace-pre-line"
                           style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
                         >
                           {r.details}
@@ -480,7 +500,7 @@ export default function ProgramPage() {
                           </span>
                         )}
                         {r.other && (
-                          <span className="text-[10px]" style={{ color: "var(--mu)" }}>
+                          <span className="text-[12px]" style={{ color: "var(--mu)" }}>
                             {r.other}
                           </span>
                         )}
@@ -492,10 +512,10 @@ export default function ProgramPage() {
 
               {/* ── RESULT divider ── */}
               {hasResult && (
-                <div className="mx-4 mb-2 flex items-center gap-2 p-[0.25rem]">
+                <div className="mx-4 mb-2 flex items-center gap-2 p-[0.5rem]">
                   <div className="h-[1px] flex-1" style={{ background: "var(--br)" }} />
                   <span
-                    className="text-[9px] tracking-[1.5px] uppercase"
+                    className="text-[12px] tracking-[1.5px] uppercase"
                     style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}
                   >
                     Result
@@ -511,7 +531,7 @@ export default function ProgramPage() {
                     {["#","KG","REPS","NOTE"].map(h => (
                       <span
                         key={h}
-                        className="text-[9px] tracking-[1px] uppercase text-center"
+                        className="text-[12px] tracking-[1px] uppercase text-center"
                         style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
                       >
                         {h}
@@ -538,7 +558,7 @@ export default function ProgramPage() {
                       >
                         {set.reps ?? "—"}
                       </span>
-                      <span className="text-[11px]" style={{ color: "var(--mu2)" }}>
+                      <span className="text-[12px]" style={{ color: "var(--mu2)" }}>
                         {set.notes || "—"}
                       </span>
                     </div>
@@ -552,18 +572,18 @@ export default function ProgramPage() {
                   {s.resultRounds.map(r => (
                     <div
                       key={r.roundNumber}
-                      className="rounded-[7px] px-3 py-2 p-[0.25rem]"
+                      className="rounded-[7px] p-[0.5rem] mb-[0.5rem]"
                       style={{ background: "var(--s2)", border: "1px solid var(--br)" }}
                     >
                       <div
-                        className="text-[11px] tracking-[1px] mb-1"
+                        className="text-[14px] tracking-[1px] mb-[0.25rem]"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}
                       >
                         Round {r.roundNumber}
                       </div>
                       {r.details && (
                         <div
-                          className="text-[11px] whitespace-pre-line mb-1"
+                          className="text-[12px] whitespace-pre-line mb-[0.25rem]"
                           style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}
                         >
                           {r.details}
@@ -571,19 +591,19 @@ export default function ProgramPage() {
                       )}
                       <div className="flex gap-3 flex-wrap">
                         {r.weight !== null && (
-                          <span className="text-[11px]"
+                          <span className="text-[12px]"
                             style={{ fontFamily: "'DM Mono', monospace" }}>
                             {r.weight}kg
                           </span>
                         )}
                         {r.reps !== null && (
-                          <span className="text-[11px]"
+                          <span className="text-[12px]"
                             style={{ fontFamily: "'DM Mono', monospace" }}>
                             {r.reps} reps
                           </span>
                         )}
                         {r.other && (
-                          <span className="text-[11px]" style={{ color: "var(--mu2)" }}>
+                          <span className="text-[12px]" style={{ color: "var(--mu2)" }}>
                             {r.other}
                           </span>
                         )}
@@ -616,7 +636,8 @@ export default function ProgramPage() {
                 className="flex border-t"
                 style={{ borderColor: `${meta.color}22` }}
               >
-                <button
+                {/* AI button */}
+                {/* <button
                   onClick={() => handleAI(s.id)}
                   disabled={s.aiLoading}
                   className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
@@ -629,7 +650,7 @@ export default function ProgramPage() {
                   }}
                 >
                   {s.aiLoading ? "..." : s.aiNote ? "↻ AI" : "⚡ AI"}
-                </button>
+                </button> */}
 
                 <button
                   onClick={() => setEditTarget(s)}
@@ -659,18 +680,19 @@ export default function ProgramPage() {
                   {done ? "Edit Result" : "Log Result"}
                 </button>
 
-                {/* <button
-                  onClick={() => setConfirmId(s.id)}
-                  className="px-4 py-[10px] text-[10px] cursor-pointer"
+                <button
+                  onClick={() => { setCopyTarget(s); setCopyDate(TODAY_STR); }}
+                  className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
                   style={{
-                    fontFamily: "'DM Mono', monospace",
-                    background: "transparent",
-                    border:     "none",
-                    color:      "var(--red)",
+                    fontFamily:  "'DM Mono', monospace",
+                    background:  "transparent",
+                    border:      "none",
+                    borderRight: `1px solid ${meta.color}22`,
+                    color:       "var(--mu2)",
                   }}
                 >
-                  ✕
-                </button> */}
+                  Copy
+                </button>
               </div>
             </div>
           );
@@ -782,6 +804,99 @@ export default function ProgramPage() {
           to   { opacity:1; transform:translateY(0); }
         }
       `}</style>
+
+      {/* ── Copy Session Sheet ── */}
+      {copyTarget && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bottom-[0] left-[0] w-full"
+          style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => setCopyTarget(null)}
+        >
+          <div
+            className="w-full max-w-[430px] rounded-t-[20px] p-[1rem] pb-[2rem]"
+            style={{ background: "var(--s1)", border: "1px solid var(--br)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* header */}
+            <div className="flex items-center justify-between mb-[1rem]">
+              <div>
+                <div className="text-[20px] tracking-[1px]"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                  Copy Session
+                </div>
+                <div className="text-[11px] mt-[2px]"
+                  style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                  {copyTarget.name}
+                </div>
+              </div>
+              <button
+                onClick={() => setCopyTarget(null)}
+                style={{ background: "none", border: "none", color: "var(--mu)", cursor: "pointer", fontSize: 20 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* date picker */}
+            <div className="mb-[1rem]">
+              <div className="text-[10px] tracking-[1.5px] uppercase mb-[0.25rem]"
+                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                Copy to Date
+              </div>
+              <input
+                type="date"
+                value={copyDate}
+                onChange={e => setCopyDate(e.target.value)}
+                className="w-full rounded-[8px] px-[10px] py-[10px] text-[14px] outline-none"
+                style={{
+                  background: "var(--s2)",
+                  border:     "1px solid var(--br)",
+                  color:      "var(--tx)",
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              />
+            </div>
+
+            {/* quick date buttons */}
+            <div className="flex gap-2 mb-[1rem]">
+              {[
+                { label: "Today",     date: TODAY_STR },
+                { label: "Tomorrow",  date: (() => { const d = new Date(); d.setDate(d.getDate() + 1); return getLocalDateString(d); })() },
+                { label: "Next Week", date: (() => { const d = new Date(); d.setDate(d.getDate() + 7); return getLocalDateString(d); })() },
+              ].map(opt => (
+                <button
+                  key={opt.label}
+                  onClick={() => setCopyDate(opt.date)}
+                  className="flex-1 rounded-[8px] py-[8px] text-[11px] cursor-pointer transition-colors"
+                  style={{
+                    fontFamily: "'DM Mono', monospace",
+                    background: copyDate === opt.date ? "var(--acc)" : "var(--s2)",
+                    border:     `1px solid ${copyDate === opt.date ? "var(--acc)" : "var(--br)"}`,
+                    color:      copyDate === opt.date ? "#000" : "var(--mu2)",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* confirm */}
+            <button
+              onClick={handleCopy}
+              disabled={!copyDate || copyDate === selectedDate}
+              className="w-full rounded-[9px] py-[13px] text-[17px] tracking-[2px] cursor-pointer"
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                background: (!copyDate || copyDate === selectedDate) ? "var(--s3)" : "var(--acc)",
+                border:     "none",
+                color:      (!copyDate || copyDate === selectedDate) ? "var(--mu)" : "#000",
+              }}
+            >
+              {copyDate === selectedDate ? "Same Date — Pick Another" : "Copy Session"}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

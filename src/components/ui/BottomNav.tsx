@@ -67,10 +67,12 @@ export default function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              className="flex-1 flex flex-col items-center gap-1 py-2.5 pb-4 text-[9px] font-medium tracking-[0.8px] uppercase transition-colors no-tap-highlight"
+              className="flex-1 flex flex-col items-center py-[0.5rem] pb-[1rem] text-[10px] font-medium tracking-[0.8px] uppercase transition-colors no-tap-highlight"
               style={{
                 color:      active ? "var(--acc)" : "var(--mu)",
                 fontFamily: "'DM Sans', sans-serif",
+                textDecoration: "none",
+                gap: "0.25rem",
               }}
             >
               {tab.icon}
