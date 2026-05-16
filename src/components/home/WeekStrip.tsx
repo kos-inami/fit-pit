@@ -1,12 +1,17 @@
 export type WeekDayState = "done" | "today" | "upcoming" | "empty" | "incomplete";
 
 export interface WeekDayData {
-    label: string;
-    state: WeekDayState;
-    date:  string;
+    label:    string;
+    state:    WeekDayState;
+    date:     string;
 }
 
-export default function WeekStrip({ days }: { days: WeekDayData[] }) {
+interface WeekStripProps {
+    days:       WeekDayData[];
+    onDayClick: (date: string) => void;
+}
+
+export default function WeekStrip({ days, onDayClick }: WeekStripProps) {
 
     const style = (state: WeekDayState) => {
         switch (state) {
@@ -55,16 +60,17 @@ export default function WeekStrip({ days }: { days: WeekDayData[] }) {
     };
 
     return (
-        <div className="flex gap-[5px] mb-5">
+    <div className="flex gap-[5px] mb-5">
         {days.map((d, i) => {
             const s = style(d.state);
             return (
-            <div
+            <button
                 key={i}
-                className="flex-1 aspect-square rounded-[8px] flex flex-col items-center justify-center gap-[3px]"
+                onClick={() => onDayClick(d.date)}
+                className="flex-1 aspect-square rounded-[8px] flex flex-col items-center justify-center gap-[3px] cursor-pointer"
                 style={{
                 fontFamily:    "'DM Mono', monospace",
-                fontSize:      "10px",
+                fontSize:      9,
                 textTransform: "uppercase",
                 fontWeight:    d.state === "done" ? 600 : 400,
                 ...s,
@@ -79,7 +85,7 @@ export default function WeekStrip({ days }: { days: WeekDayData[] }) {
                     background:   dot(d.state),
                 }} />
                 )}
-            </div>
+            </button>
             );
         })}
         </div>

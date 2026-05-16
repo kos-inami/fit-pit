@@ -1,17 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import TopNav from "@/components/ui/TopNav";
 import WeekStrip, { WeekDayData, WeekDayState } from "@/components/home/WeekStrip";
 import TypeChip from "@/components/session/TypeChip";
+import RecoverySheet from "@/components/log/RecoverySheet";
 import { useProgram } from "@/contexts/ProgramContext";
-import { SESSION_TYPE_META } from "@/types";
+import { SESSION_TYPE_META, RecoveryLog } from "@/types";
 import { getLocalDateString, getTodayString } from "@/lib/utils";
 
 const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
-const FEEL_COLOR  = ["#5cb8ff","#e8ff3c","#3cffa0","#ff9055","#ff4c2b"];
-const FEEL_LABEL  = ["Spent","Okay","Good","Pumped","Beast"];
 
 function getThisWeekDates(): string[] {
   const now  = new Date();
@@ -26,7 +27,10 @@ function getThisWeekDates(): string[] {
   });
 }
 
-function isSessionComplete(s: { sets: unknown[]; rounds: unknown[]; resultRounds: unknown[]; result: string | null; type: string }) {
+function isSessionComplete(s: {
+  sets: unknown[]; rounds: unknown[];
+  resultRounds: unknown[]; result: string | null; type: string;
+}) {
   const meta = SESSION_TYPE_META[s.type as keyof typeof SESSION_TYPE_META];
   if (meta.useSets) return s.sets.length > 0;
   if (s.type === "wod" || s.type === "zone") return (s.resultRounds as unknown[]).length > 0;
@@ -34,45 +38,41 @@ function isSessionComplete(s: { sets: unknown[]; rounds: unknown[]; resultRounds
 }
 
 export default function HomePage() {
-  const { getDay, days } = useProgram();
+  const router = useRouter();
+  const { getDay, days, saveRecovery } = useProgram();
 
-  const weekDates  = getThisWeekDates();
-  const todayDay   = getDay(TODAY_STR);
-  const sessions   = todayDay.sessions;
-  const lastAI     = todayDay.aiSuggestion;
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+
+  const weekDates = getThisWeekDates();
+  const todayDay  = getDay(TODAY_STR);
+  const sessions  = todayDay.sessions;
+  const lastAI    = todayDay.aiSuggestion;
   const dayComplete = todayDay.recovery !== null;
 
   const weekDayData: WeekDayData[] = weekDates.map((date, i) => {
-    const d          = getDay(date);
-    const isToday    = date === TODAY_STR;
-    const isPast     = date < TODAY_STR;
-    const isFuture   = date > TODAY_STR;
+    const d           = getDay(date);
+    const isToday     = date === TODAY_STR;
+    const isPast      = date < TODAY_STR;
+    const isFuture    = date > TODAY_STR;
     const hasSessions = d.sessions.length > 0;
-    const allDone    = hasSessions && d.sessions.every(
-      s => isSessionComplete(s as Parameters<typeof isSessionComplete>[0])
-    );
-    const anyDone    = hasSessions && d.sessions.some(
+    const allDone     = hasSessions && d.sessions.every(
       s => isSessionComplete(s as Parameters<typeof isSessionComplete>[0])
     );
 
     let state: WeekDayState = "empty";
-
-    if (isToday) {
-      state = "today";
-    } else if (isPast && hasSessions && allDone) {
-      state = "done";
-    } else if (isPast && hasSessions && !allDone) {
-      state = "incomplete";
-    } else if (isFuture && hasSessions) {
-      state = "upcoming";
-    }
+    if (isToday)                        state = "today";
+    else if (isPast && allDone)         state = "done";
+    else if (isPast && hasSessions)     state = "incomplete";
+    else if (isFuture && hasSessions)   state = "upcoming";
 
     return { label: DAY_LETTERS[i], state, date };
   });
 
   const allDays       = Object.values(days);
   const totalSessions = allDays.reduce((a, d) => a + d.sessions.length, 0);
-  const completed     = allDays.reduce((a, d) => a + d.sessions.filter(s => isSessionComplete(s as Parameters<typeof isSessionComplete>[0])).length, 0);
+  const completed     = allDays.reduce((a, d) => a + d.sessions.filter(
+    s => isSessionComplete(s as Parameters<typeof isSessionComplete>[0])
+  ).length, 0);
 
   const recentDays = Object.values(days)
     .filter(d => d.date < TODAY_STR && d.sessions.length > 0)
@@ -83,55 +83,48 @@ export default function HomePage() {
     weekday: "long", day: "numeric", month: "short",
   });
 
+  const handleDayClick = (date: string) => {
+    router.push(`/program?date=${date}`);
+  };
+
+  const handleRecovery = (data: RecoveryLog) => {
+    saveRecovery(TODAY_STR, data);
+    setRecoveryOpen(false);
+  };
+
   return (
     <>
-      <TopNav
-        title="FIT PIT"
-        // right={
-        //   <span className="text-[10px] px-[9px] py-[3px] rounded-full"
-        //     style={{ fontFamily: "'DM Mono', monospace", background: "var(--red)", color: "#fff" }}>
-        //     🔥 6 DAY STREAK
-        //   </span>
-        // }
-      />
+      <TopNav title="FIT PIT" />
 
       <main className="px-[18px] pt-5 pb-28">
 
-        <WeekStrip days={weekDayData} />
+        <WeekStrip days={weekDayData} onDayClick={handleDayClick} />
 
-        {/* stats
-        <div className="grid grid-cols-2 gap-[8px] mb-5">
-          {[[totalSessions,"Sessions"],[completed,"Completed"]].map(([v,l]) => (
-            <div key={String(l)} className="rounded-[10px] py-4 text-center"
-              style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
-              <div className="text-[28px] leading-none mb-[4px]"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>{v}</div>
-              <div className="text-[9px] tracking-[1.5px] uppercase"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>{l}</div>
-            </div>
-          ))}
-        </div> */}
-
-        {/* today */}
-        <div className="flex items-center justify-center"
-          style={{
-            padding: "1rem 0",
-          }}
-        >
-          <div className="text-sm tracking-[2px] uppercase"
-            style={{ 
-              fontFamily: "'DM Mono', monospace",
-              color: "white",
-            }}>
+        {/* today header */}
+        <div className="my-[1rem] text-center">
+          <div className="text-[16px] tracking-[2px] uppercase mb-[1rem]"
+            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
             Today · {todayLabel}
+          </div>
+          <div>
+            <button
+              onClick={() => setRecoveryOpen(true)}
+              className="rounded-[8px] w-full py-[0.5rem] text-[12px] tracking-[1px] cursor-pointer"
+              style={{
+                fontFamily: "'DM Mono', monospace",
+                background: todayDay.recovery ? "var(--grn)" : "transparent",
+                border:     `1px solid ${todayDay.recovery ? "var(--grn)" : "var(--org)"}`,
+                color:      todayDay.recovery ? "#000" : "var(--org)",
+              }}
+            >
+              {todayDay.recovery ? "✓ Recovery" : "+ Recovery"}
+            </button>
           </div>
         </div>
 
+        {/* today sessions */}
         {sessions.length === 0 ? (
-          <Link href="/program" 
-          style={{
-            textDecoration: "none",
-          }}>
+          <Link href="/program" style={{ textDecoration: "none" }}>
             <div className="rounded-[12px] p-[1rem] mb-[1rem] text-center cursor-pointer"
               style={{ background: "var(--s1)", border: "1px dashed var(--br2)" }}>
               <div className="text-[14px] mb-1 p-[0.5rem]" style={{ color: "var(--mu)" }}>
@@ -151,15 +144,15 @@ export default function HomePage() {
               const done = isSessionComplete(s as Parameters<typeof isSessionComplete>[0]);
               return (
                 <div key={s.id}
-                  className="flex items-center justify-between px-4 py-[12px]"
+                  className="flex items-center justify-between"
                   style={{
-                    padding: ".5rem",
+                    padding:      ".5rem",
                     borderBottom: i < sessions.length - 1 ? "1px solid var(--br)" : "none",
                     background:   `linear-gradient(90deg, ${meta.color}08 0%, transparent 100%)`,
                   }}>
-                  <div className="py-[0.5rem] min-w-0">
+                  <div className="py-[0.25rem] min-w-0">
                     <TypeChip type={s.type} />
-                    <div className="text-[18px] tracking-[0.5px] truncate px-[0.5rem] mt-[1rem]"
+                    <div className="text-[18px] tracking-[0.5px] truncate px-[0.25rem] mt-[0.5rem]"
                       style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                       {s.name}
                     </div>
@@ -170,32 +163,28 @@ export default function HomePage() {
                       ✓ Done
                     </span>
                   ) : (
-                    <span className="text-[12px] px-2 py-[3px] rounded-full flex-shrink-0 ml-2"
-                      style={{ fontFamily: "'DM Mono', monospace", background: "#1a0800", color: "#ff9055", border: "1px solid #331500" }}>
+                    <span className="text-[12px] flex-shrink-0 ml-2"
+                      style={{ fontFamily: "'DM Mono', monospace", color: "#ff9055", }}>
                       Pending
                     </span>
                   )}
                 </div>
               );
             })}
-            <Link href="/program" style={{
-              textDecoration: "none",
-              fontWeight: "bold",
-            }}>
-              <div className="p-[1.25rem] text-center text-[14px] tracking-[1px] cursor-pointer"
-                style={{ 
-                  fontFamily: "'DM Mono', monospace", 
-                  color: "var(--tx)", 
-                  borderTop: "1px solid var(--br)", 
-                  background: "var(--org)",
-                  }}>
+            <Link href="/program" style={{ textDecoration: "none" }}>
+              <div className="p-[1.25rem] text-center text-[12px] tracking-[1px] cursor-pointer"
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  color:      "var(--org)",
+                  borderTop:  "1px solid var(--org)",
+                }}>
                 {dayComplete ? "View in Program →" : "Log Results in Program →"}
               </div>
             </Link>
           </div>
         )}
 
-        {/* last AI note */}
+        {/* AI coach note */}
         {lastAI && (
           <>
             <div className="flex items-center justify-between mb-3">
@@ -229,68 +218,18 @@ export default function HomePage() {
           </>
         )}
 
-        {/* recent days
-        {recentDays.length > 0 && (
-          <>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-[10px] tracking-[2px] uppercase"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                Recent
-              </div>
-              <Link href="/program"
-                className="text-[10px] tracking-[1px] uppercase"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--acc)" }}>
-                See All →
-              </Link>
-            </div>
-            {recentDays.map(d => (
-              <div key={d.date} className="rounded-[12px] mb-3 overflow-hidden"
-                style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
-                <div className="flex items-center justify-between px-4 py-2"
-                  style={{ borderBottom: "1px solid var(--br)" }}>
-                  <span className="text-[10px] tracking-[1.5px] uppercase"
-                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                    {new Date(d.date + "T00:00:00").toLocaleDateString("en-AU", {
-                      weekday: "short", day: "numeric", month: "short",
-                    })}
-                  </span>
-                  {d.recovery && (
-                    <div className="flex items-center gap-2">
-                      <span className="w-[6px] h-[6px] rounded-full"
-                        style={{ background: FEEL_COLOR[d.recovery.energy] }} />
-                      <span className="text-[10px]"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                        {FEEL_LABEL[d.recovery.energy]}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {d.sessions.map((s, i) => {
-                  const meta = SESSION_TYPE_META[s.type];
-                  return (
-                    <div key={s.id}
-                      className="flex items-center justify-between px-4 py-[10px]"
-                      style={{ borderBottom: i < d.sessions.length - 1 ? "1px solid var(--br)" : "none" }}>
-                      <div className="flex items-center gap-2">
-                        <TypeChip type={s.type} />
-                        <span className="text-[14px] tracking-[0.5px]"
-                          style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                          {s.name}
-                        </span>
-                      </div>
-                      <span className="text-[12px]"
-                        style={{ fontFamily: "'DM Mono', monospace", color: meta.color }}>
-                        {s.result ?? (s.sets.length > 0 ? `${s.sets.length} sets` : s.resultRounds?.length > 0 ? `${s.resultRounds.length} rounds` : "—")}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </>
-        )} */}
-
       </main>
+
+      <RecoverySheet
+        open={recoveryOpen}
+        onClose={() => setRecoveryOpen(false)}
+        onSave={handleRecovery}
+        onDelete={todayDay.recovery ? () => {
+          saveRecovery(TODAY_STR, null as unknown as RecoveryLog);
+          setRecoveryOpen(false);
+        } : undefined}
+        initial={todayDay.recovery}
+      />
 
       <style>{`
         @keyframes pulse {

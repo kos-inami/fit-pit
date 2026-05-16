@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import TopNav from "@/components/ui/TopNav";
 import WeekSelector from "@/components/program/WeekSelector";
@@ -13,13 +13,13 @@ import TypeChip from "@/components/session/TypeChip";
 import { useProgram, ProgSession } from "@/contexts/ProgramContext";
 import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry, RecoveryLog } from "@/types";
 import { getLocalDateString, getTodayString } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
+
 
 
 // ─── helpers ─────────────────────────────────────────────────
 const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
-const FEEL_COLOR  = ["#5cb8ff","#e8ff3c","#3cffa0","#ff9055","#ff4c2b"];
-const FEEL_LABEL  = ["Spent","Okay","Good","Pumped","Beast"];
 
 function getWeekDates(offset: number): string[] {
   const now  = new Date();
@@ -90,7 +90,6 @@ const {
   const [flash,        setFlash]        = useState<string | null>(null);
   const [copyTarget, setCopyTarget] = useState<ProgSession | null>(null);
   const [copyDate,   setCopyDate]   = useState(TODAY_STR);
-
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
@@ -200,6 +199,23 @@ const {
     setCopyTarget(null);
     showFlash(`Copied to ${copyDate}`);
   };
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const dateParam = searchParams.get("date");
+    if (!dateParam) return;
+
+    const id = setTimeout(() => {
+      setSelectedDate(dateParam);
+      const diffDays = Math.floor(
+        (new Date(dateParam).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+      );
+      setWeekOffset(Math.floor(diffDays / 7));
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, [searchParams]);
 
   // ────────────────────────────────────────────────────────
   return (
