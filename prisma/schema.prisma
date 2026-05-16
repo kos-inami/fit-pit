@@ -69,14 +69,16 @@ model Set {
 }
 
 model Recovery {
-  id        String   @id @default(cuid())
-  dayId     String   @unique
-  day       Day      @relation(fields: [dayId], references: [id])
-  energy    Int
-  sore      String
-  sleep     String
-  notes     String?
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  dayId        String   @unique
+  day          Day      @relation(fields: [dayId], references: [id])
+  energy       Int
+  sore         String
+  soreOther    String?
+  sleepHours   Float?
+  sleepQuality Int?
+  notes        String?
+  createdAt    DateTime @default(now())
 }
 
 model AISuggestion {

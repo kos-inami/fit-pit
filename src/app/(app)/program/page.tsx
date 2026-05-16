@@ -268,41 +268,49 @@ export default function ProgramPage() {
             style={{ background: "var(--s1)", border: "1px solid #003322" }}
             onClick={() => setRecoveryOpen(true)}
           >
-            <span
-              className="w-[8px] h-[8px] rounded-full flex-shrink-0"
-              style={{ background: FEEL_COLOR[selectedDay.recovery.energy] }}
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className="text-[12px] font-medium"
-                  style={{ color: FEEL_COLOR[selectedDay.recovery.energy] }}
-                >
-                  {FEEL_LABEL[selectedDay.recovery.energy]}
-                </span>
-                <span style={{ color: "var(--br2)" }}>·</span>
-                <span
-                  className="text-[11px]"
-                  style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-                >
-                  {selectedDay.recovery.sleep}
-                </span>
-                {selectedDay.recovery.sore.length > 0 && (
-                  <>
-                    <span style={{ color: "var(--br2)" }}>·</span>
-                    <span
-                      className="text-[11px]"
-                      style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-                    >
-                      Sore: {selectedDay.recovery.sore.join(", ")}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--mu)" }}>
-              Edit
-            </span>
+            {(() => {
+              const e = [
+                { value: 5, color: "#3cffa0", emoji: "⚡", label: "Excellent" },
+                { value: 4, color: "#a8ff78", emoji: "💪", label: "Good"      },
+                { value: 3, color: "#e8ff3c", emoji: "🙂", label: "Moderate"  },
+                { value: 2, color: "#ff9055", emoji: "😐", label: "Low"       },
+                { value: 1, color: "#ff4c2b", emoji: "😴", label: "Exhausted" },
+              ].find(x => x.value === selectedDay.recovery!.energy)!;
+              return (
+                <>
+                  <span className="text-[18px] flex-shrink-0">{e.emoji}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[12px] font-medium" style={{ color: e.color }}>
+                        {e.label}
+                      </span>
+                      {selectedDay.recovery!.sleepHours && (
+                        <>
+                          <span style={{ color: "var(--br2)" }}>·</span>
+                          <span className="text-[11px]"
+                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                            {selectedDay.recovery!.sleepHours}h sleep
+                          </span>
+                        </>
+                      )}
+                      {selectedDay.recovery!.sore.length > 0 && (
+                        <>
+                          <span style={{ color: "var(--br2)" }}>·</span>
+                          <span className="text-[11px]"
+                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                            Sore: {selectedDay.recovery!.sore.slice(0, 2).join(", ")}
+                            {selectedDay.recovery!.sore.length > 2 ? ` +${selectedDay.recovery!.sore.length - 2}` : ""}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--mu)" }}>
+                    Edit
+                  </span>
+                </>
+              );
+            })()}
           </div>
         )}
 

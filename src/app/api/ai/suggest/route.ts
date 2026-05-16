@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
           }).join(" | ");
 
           const rec = d.recovery
-            ? `Energy ${d.recovery.energy}/4, Sleep: ${d.recovery.sleep}, Sore: ${d.recovery.sore}`
+            ? `Energy ${d.recovery.energy}/5, Sleep: ${d.recovery.sleepHours ?? "?"}h (quality ${d.recovery.sleepQuality ?? "?"}/5), Sore: ${d.recovery.sore}`
             : "No recovery logged";
 
           return `[${d.date}] ${sessionsText} — Recovery: ${rec}`;

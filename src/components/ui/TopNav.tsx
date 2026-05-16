@@ -7,7 +7,7 @@ export default function TopNav({
 }) {
   return (
     <header
-      className="sticky top-0 z-40 flex items-center justify-between px-[18px] py-[13px]"
+      className="sticky top-0 z-40 flex items-center justify-between px-[18px] py-[13px] mb-[1rem]"
       style={{
         background: "rgba(8,8,8,0.93)",
         borderBottom: "1px solid var(--br)",

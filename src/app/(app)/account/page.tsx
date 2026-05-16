@@ -159,8 +159,17 @@ export default function AccountPage() {
     : 2;
 
     const FEEL_COLOR = ["#5cb8ff","#e8ff3c","#3cffa0","#ff9055","#ff4c2b"];
-    const FEEL_LABEL = ["Spent","Okay","Good","Pumped","Beast"];
-    const FEEL_EMOJI = ["😴","🙂","💪","🔥","⚡"];
+    // const FEEL_LABEL = ["Spent","Okay","Good","Pumped","Beast"];
+    // const FEEL_EMOJI = ["😴","🙂","💪","🔥","⚡"];
+    const ENERGY_META = [
+        { value: 1, label: "Exhausted", color: "#ff4c2b", emoji: "😴" },
+        { value: 2, label: "Low",       color: "#ff9055", emoji: "😐" },
+        { value: 3, label: "Moderate",  color: "#e8ff3c", emoji: "🙂" },
+        { value: 4, label: "Good",      color: "#a8ff78", emoji: "💪" },
+        { value: 5, label: "Excellent", color: "#3cffa0", emoji: "⚡" },
+    ];
+
+    const avgEnergyMeta = ENERGY_META[Math.min(Math.max(Math.round(avgEnergy) - 1, 0), 4)];
 
     return (
         <>
@@ -205,43 +214,43 @@ export default function AccountPage() {
             {/* ── avg recovery ── */}
             <SectionLabel>Avg Recovery</SectionLabel>
             {recoveredDays.length > 0 ? (
-            <div
-                className="rounded-[12px] px-4 py-4 flex items-center gap-4 mb-5"
-                style={{ background: "var(--s1)", border: "1px solid var(--br)" }}
-            >
                 <div
-                className="w-[48px] h-[48px] rounded-full flex items-center justify-center flex-shrink-0 text-[22px]"
-                style={{
-                    background: FEEL_COLOR[avgEnergy] + "22",
-                    border:     `1px solid ${FEEL_COLOR[avgEnergy]}`,
-                }}
+                    className="rounded-[12px] px-4 py-4 flex items-center gap-4 mb-5"
+                    style={{ background: "var(--s1)", border: "1px solid var(--br)" }}
                 >
-                {FEEL_EMOJI[avgEnergy]}
+                    <div
+                    className="w-[48px] h-[48px] rounded-full flex items-center justify-center flex-shrink-0 text-[22px]"
+                    style={{
+                        background: avgEnergyMeta.color + "22",
+                        border:     `1px solid ${avgEnergyMeta.color}`,
+                    }}
+                    >
+                    {avgEnergyMeta.emoji}
+                    </div>
+                    <div>
+                    <div className="text-[16px] font-medium" style={{ color: avgEnergyMeta.color }}>
+                        {avgEnergyMeta.label}
+                    </div>
+                    <div className="text-[11px] mt-[2px]"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                        Based on {recoveredDays.length} logged days
+                    </div>
+                    </div>
                 </div>
-                <div>
-                <div className="text-[16px] font-medium" style={{ color: FEEL_COLOR[avgEnergy] }}>
-                    {FEEL_LABEL[avgEnergy]}
-                </div>
-                <div className="text-[11px] mt-[2px]"
-                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                    Based on {recoveredDays.length} logged days
-                </div>
-                </div>
-            </div>
             ) : (
-            <div
-                className="rounded-[12px] px-4 py-5 mb-5 text-center"
-                style={{ background: "var(--s1)", border: "1px dashed var(--br2)" }}
-            >
-                <div className="text-[20px] mb-2">😴</div>
-                <div className="text-[13px] mb-1" style={{ color: "var(--mu2)" }}>
-                No recovery logged yet
+                <div
+                    className="rounded-[12px] px-4 py-5 mb-5 text-center"
+                    style={{ background: "var(--s1)", border: "1px dashed var(--br2)" }}
+                >
+                    <div className="text-[20px] mb-2">😴</div>
+                    <div className="text-[13px] mb-1" style={{ color: "var(--mu2)" }}>
+                    No recovery logged yet
+                    </div>
+                    <div className="text-[11px]"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    Log recovery after your sessions to track readiness
+                    </div>
                 </div>
-                <div className="text-[11px]"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                Log recovery after your sessions to track readiness
-                </div>
-            </div>
             )}
 
             {/* ── type breakdown ── */}

@@ -112,10 +112,12 @@ function transformDay(dbDay: any): ProgDay {
       recoveryNote: dbDay.aiSuggestion.recoveryNote          ?? "",
     } : null,
     recovery: dbDay.recovery ? {
-      energy: dbDay.recovery.energy,
-      sore:   JSON.parse(dbDay.recovery.sore ?? "[]"),
-      sleep:  dbDay.recovery.sleep,
-      notes:  dbDay.recovery.notes ?? "",
+      energy:       dbDay.recovery.energy,
+      sore:         JSON.parse(dbDay.recovery.sore ?? "[]"),
+      soreOther:    dbDay.recovery.soreOther    ?? "",
+      sleepHours:   dbDay.recovery.sleepHours   ?? null,
+      sleepQuality: dbDay.recovery.sleepQuality ?? null,
+      notes:        dbDay.recovery.notes        ?? "",
     } : null,
   };
 }
@@ -345,13 +347,17 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           dayId,
-          energy: rec.energy,
-          sore:   JSON.stringify(rec.sore),
-          sleep:  rec.sleep,
-          notes:  rec.notes ?? "",
+          energy:       rec.energy,
+          sore:         JSON.stringify(rec.sore),
+          soreOther:    rec.soreOther    ?? "",
+          sleepHours:   rec.sleepHours   ?? null,
+          sleepQuality: rec.sleepQuality ?? null,
+          notes:        rec.notes        ?? "",
         }),
       });
-    } catch { console.error("Failed to save recovery"); }
+    } catch {
+      console.error("Failed to save recovery");
+    }
   }, [updateDay, ensureDayId]);
 
   // -- delete Recovery ---

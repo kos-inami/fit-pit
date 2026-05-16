@@ -57,12 +57,14 @@ export type DayWithSessions = {
 };
 
 // ─── RECOVERY ────────────────────────────────────────────────
-export type RecoveryLog = {
-    energy: number;
-    sore:   string[];
-    sleep:  string;
-    notes:  string;
-};
+export interface RecoveryLog {
+    energy:       number;
+    sore:         string[];
+    soreOther:    string;
+    sleepHours:   number | null;
+    sleepQuality: number | null;
+    notes:        string;
+}
 
 // ─── AI ──────────────────────────────────────────────────────
 export type AISuggestionData = {
