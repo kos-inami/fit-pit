@@ -19,18 +19,20 @@ interface LogResultSheetProps {
     sets?:         SetLog[];
     resultRounds?: RoundEntry[];
   }) => void;
+  onDelete?:            () => void;
   initialSets?:         SetLog[];
   initialResultRounds?: RoundEntry[];
 }
 
 export default function LogResultSheet({
-  open, onClose, session, onSave,
+  open, onClose, session, onSave, onDelete,
   initialSets = [], initialResultRounds = [],
 }: LogResultSheetProps) {
   const [result, setResult] = useState("");
   const [notes,  setNotes]  = useState("");
   const [sets,   setSets]   = useState<SetLog[]>(initialSets);
   const [rounds, setRounds] = useState<RoundEntry[]>(initialResultRounds);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!session) return null;
 
@@ -53,9 +55,9 @@ export default function LogResultSheet({
 
   const handleClose = () => {
     setResult(""); setNotes(""); setSets([]); setRounds([]);
+    setConfirmDelete(false);
     onClose();
   };
-
   return (
     <Sheet open={open} onClose={handleClose}>
       {/* header */}
@@ -124,6 +126,52 @@ export default function LogResultSheet({
       <Button onClick={handleSave} disabled={!canSave}>Save Result</Button>
       <div className="h-2" />
       <Button variant="outline" onClick={handleClose}>Cancel</Button>
+      {onDelete && (
+      <>
+        <div className="h-[1px] my-5" style={{ background: "var(--br)" }} />
+        {confirmDelete ? (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1 rounded-[8px] py-[11px] text-[12px] cursor-pointer"
+              style={{
+                fontFamily: "'DM Mono', monospace",
+                background: "transparent",
+                border:     "1px solid var(--br2)",
+                color:      "var(--mu2)",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { setConfirmDelete(false); onDelete(); }}
+              className="flex-1 rounded-[8px] py-[11px] text-[13px] tracking-[1px] cursor-pointer"
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                background: "var(--red)",
+                border:     "none",
+                color:      "#fff",
+              }}
+            >
+              Yes, Delete
+            </button>
+          </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full rounded-[8px] py-[11px] text-[13px] tracking-[1px] cursor-pointer"
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                background: "transparent",
+                border:     "1px solid var(--red)",
+                color:      "var(--red)",
+              }}
+            >
+              Delete Result
+            </button>
+          )}
+        </>
+      )}
     </Sheet>
   );
 }

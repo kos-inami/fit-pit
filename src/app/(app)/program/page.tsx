@@ -72,12 +72,12 @@ export default function ProgramPage() {
   const { data: authSession }  = useSession();
   const userId                 = authSession?.user?.id;
 
-  const {
-    days, getDay,
-    addSession, editSession, removeSession,
-    saveResult, setAINote, setAILoading,
-    saveRecovery, deleteRecovery,
-  } = useProgram();
+const {
+  days, getDay,
+  addSession, editSession, removeSession,
+  saveResult, clearResult, setAINote, setAILoading,
+  saveRecovery, deleteRecovery,
+} = useProgram();
 
   const [weekOffset,   setWeekOffset]   = useState(0);
   const [selectedDate, setSelectedDate] = useState(TODAY_STR);
@@ -90,6 +90,7 @@ export default function ProgramPage() {
   const [flash,        setFlash]        = useState<string | null>(null);
   const [copyTarget, setCopyTarget] = useState<ProgSession | null>(null);
   const [copyDate,   setCopyDate]   = useState(TODAY_STR);
+
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
@@ -741,6 +742,12 @@ export default function ProgramPage() {
         onClose={() => setLogTarget(null)}
         session={logTarget}
         onSave={handleSaveResult}
+        onDelete={logTarget && isDone(logTarget) ? () => {
+          if (!logTarget) return;
+          clearResult(selectedDate, logTarget.id);
+          setLogTarget(null);
+          showFlash("Result deleted");
+        } : undefined}
         initialSets={
           logTarget?.sets.length
             ? logTarget.sets

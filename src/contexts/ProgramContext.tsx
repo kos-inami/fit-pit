@@ -51,6 +51,7 @@ interface ProgramContextType {
   setDayAI:      (date: string, ai: AIResult) => void;
   saveRecovery:  (date: string, rec: RecoveryLog) => Promise<void>;
   deleteRecovery: (date: string) => Promise<void>;
+  clearResult: (date: string, id: string) => Promise<void>;
 }
 
 const ProgramContext = createContext<ProgramContextType | null>(null);
@@ -313,6 +314,38 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     } catch { console.error("Failed to save result"); }
   }, [updateDay]);
 
+  // ── remove the result ───────────────────────────────────────────────────
+  const clearResult = useCallback(async (date: string, id: string) => {
+    updateDay(date, d => ({
+      ...d,
+      sessions: d.sessions.map(s =>
+        s.id === id
+          ? { ...s, sets: [], resultRounds: [], result: null, notes: null }
+          : s
+      ),
+    }));
+    try {
+      // clear sets
+      await fetch(`/api/sessions/${id}/sets`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ sets: [] }),
+      });
+      // clear result fields
+      await fetch(`/api/sessions/${id}/result`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          result:       null,
+          notes:        null,
+          resultRounds: JSON.stringify([]),
+        }),
+      });
+    } catch {
+      console.error("Failed to clear result");
+    }
+  }, [updateDay]);
+
   // ── AI ───────────────────────────────────────────────────
   const setAINote = useCallback((date: string, id: string, note: string) => {
     updateDay(date, d => ({
@@ -376,7 +409,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     <ProgramContext.Provider value={{
       days, getDay,
       addSession, editSession, removeSession,
-      saveResult, setAINote, setAILoading,
+      saveResult, clearResult, setAINote, setAILoading,
       setDayAI, saveRecovery, deleteRecovery,
     }}>
       {children}
