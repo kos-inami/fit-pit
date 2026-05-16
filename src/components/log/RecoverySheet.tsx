@@ -125,9 +125,9 @@ export default function RecoverySheet({
         onChange={(e) => setNotes(e.target.value)}
       />
 
-      <Button onClick={handleSave}>Complete Day</Button>
+      <Button onClick={handleSave}>Save Recovery</Button>
       <div className="h-2" />
-      <Button variant="outline" onClick={onClose}>Skip Recovery</Button>
+      <Button variant="outline" onClick={onClose}>Cancel</Button>
       
       {/* delete — only show when editing existing recovery */}
       {onDelete && (
