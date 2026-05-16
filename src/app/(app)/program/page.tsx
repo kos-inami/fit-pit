@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import TopNav from "@/components/ui/TopNav";
 import WeekSelector from "@/components/program/WeekSelector";
@@ -14,6 +14,7 @@ import { useProgram, ProgSession } from "@/contexts/ProgramContext";
 import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry, RecoveryLog } from "@/types";
 import { getLocalDateString, getTodayString } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
+
 
 
 
@@ -68,7 +69,7 @@ async function fetchAI(
 }
 
 // ────────────────────────────────────────────────────────────
-export default function ProgramPage() {
+function ProgramPage() {
   const { data: authSession }  = useSession();
   const userId                 = authSession?.user?.id;
 
@@ -931,3 +932,13 @@ const {
     </>
   );
 }
+
+function ProgramPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <ProgramPage />
+    </Suspense>
+  );
+}
+
+export default ProgramPageWrapper;
