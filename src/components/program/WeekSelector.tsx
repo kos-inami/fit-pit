@@ -30,8 +30,8 @@ export default function WeekSelector({
           className="rounded-[6px] px-3 py-1 text-[14px] cursor-pointer transition-colors"
           style={{
             fontFamily: "'DM Mono', monospace",
-            background: "var(--s2)",
-            border:     "1px solid var(--br)",
+            background: "transparent",
+            border:     "none",
             color:      "var(--mu2)",
           }}
         >
@@ -49,8 +49,8 @@ export default function WeekSelector({
           className="rounded-[6px] px-3 py-1 text-[14px] cursor-pointer transition-colors"
           style={{
             fontFamily: "'DM Mono', monospace",
-            background: "var(--s2)",
-            border:     "1px solid var(--br)",
+            background: "transparent",
+            border:     "none",
             color:      canGoNext ? "var(--mu2)" : "var(--br2)",
             opacity:    canGoNext ? 1 : 0.4,
           }}
@@ -67,7 +67,7 @@ export default function WeekSelector({
             <button
               key={d.date}
               onClick={() => onSelect(d.date)}
-              className="flex-1 rounded-[10px] py-[10px] flex flex-col items-center gap-[4px] cursor-pointer transition-all"
+              className="flex-1 rounded-[10px] py-[10px] mx-[2px] flex flex-col items-center gap-[4px] cursor-pointer transition-all"
               style={{
                 background: isSelected
                   ? "var(--acc)"

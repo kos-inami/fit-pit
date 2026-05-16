@@ -247,11 +247,11 @@ const {
           onSelect={setSelectedDate}
           onPrevWeek={() => setWeekOffset(w => w - 1)}
           onNextWeek={() => setWeekOffset(w => w + 1)}
-          canGoNext={weekOffset < 0}
+          canGoNext={weekOffset < 8}
         />
 
         {/* action row */}
-        <div className="flex gap-2 my-[0.5rem]">
+        <div className="flex gap-[6] my-[0.5rem]">
           <button
             onClick={() => setAddOpen(true)}
             className="flex-1 rounded-[9px] py-[11px] text-[14px] tracking-[1.5px] cursor-pointer"
@@ -537,7 +537,7 @@ const {
 
               {/* ── RESULT divider ── */}
               {hasResult && (
-                <div className="mx-4 mb-2 flex items-center gap-2 p-[0.5rem]">
+                <div className="mx-4 mb-2 flex items-center gap-2 pb-[0.5rem]">
                   <div className="h-[1px] flex-1" style={{ background: "var(--br)" }} />
                   <span
                     className="text-[12px] tracking-[1.5px] uppercase"
