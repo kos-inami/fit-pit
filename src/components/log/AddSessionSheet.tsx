@@ -8,6 +8,7 @@ import { Input, Textarea, Label } from "@/components/ui/Input";
 import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry } from "@/types";
 import SetLogger from "@/components/log/SetLogger";
 import RoundLogger from "@/components/log/RoundLogger";
+import ScreenshotScanner from "@/components/log/ScreenshotScanner";
 
 interface AddSessionSheetProps {
   open:         boolean;
@@ -52,6 +53,7 @@ export default function AddSessionSheet({
   const [allRecords,       setAllRecords]       = useState<{ movement: string; weight: number }[]>([]);
   const [selectedMovement, setSelectedMovement] = useState<string>("");
   const [maxWeight,        setMaxWeight]        = useState<number | null>(null);
+  const [showScanner,      setShowScanner]      = useState(false);
 
   const meta    = SESSION_TYPE_META[type];
   const useSets = meta.useSets;
@@ -118,6 +120,13 @@ export default function AddSessionSheet({
     onClose();
   };
 
+  const handleFill = (data: { name: string; desc: string; type: SessionType }) => {
+    if (!isEdit) setType(data.type);
+    setName(data.name);
+    setDesc(data.desc);
+    setShowScanner(false);
+  };
+
   const handleClose = () => { reset(); onClose(); };
 
   return (
@@ -161,6 +170,32 @@ export default function AddSessionSheet({
           ))}
         </div>
       </div>
+
+      {/* screenshot scanner button — add mode only */}
+      {!isEdit && (
+        <button
+          onClick={() => setShowScanner(s => !s)}
+          className="w-full rounded-[8px] py-[9px] text-[11px] tracking-[1px] mb-[0.5rem] cursor-pointer"
+          style={{
+            fontFamily: "'DM Mono', monospace",
+            background: showScanner ? "var(--s3)" : "transparent",
+            border:     "1px solid var(--br2)",
+            color:      "var(--mu2)",
+          }}
+        >
+          {showScanner ? "✕ Close Scanner" : "📸 Use Screenshot"}
+        </button>
+      )}
+
+      {showScanner && (
+        <div className="mb-4 rounded-[10px] p-4"
+          style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
+          <ScreenshotScanner
+            onFill={handleFill}
+            onClose={() => setShowScanner(false)}
+          />
+        </div>
+      )}
 
       {/* name */}
       <Input
