@@ -457,11 +457,7 @@ const {
               }}
             >
               {/* head */}
-              <div className="flex items-start justify-between px-4 pt-3 pb-2"
-                  style={{
-                    borderBottom: "1px solid var(--br2)",
-                  }}
-                >
+              <div className="flex items-start justify-between px-4 pt-3 pb-2">
                 <div className="flex-1 min-w-0 pr-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
