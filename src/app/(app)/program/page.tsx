@@ -644,7 +644,7 @@ const {
               {/* ── RESULT: comment (all types) ── */}
               {s.result && (
                 <div className="p-[0.5rem] mb-[0.5rem]">
-                  <p className="text-[13px]" style={{ color: meta.color }}>{s.result}</p>
+                  <p className="text-[13px] whitespace-pre-line" style={{ color: meta.color }}>{s.result}</p>
                 </div>
               )}
 
@@ -740,7 +740,7 @@ const {
               {/* notes */}
               {s.notes && (
                 <div className="mx-4 mb-3 p-[0.5rem]">
-                  <p className="text-[12px] italic" style={{ color: "var(--mu2)" }}>
+                  <p className="text-[12px] italic whitespace-pre-line" style={{ color: "var(--mu2)" }}>
                     &ldquo;{s.notes}&rdquo;
                   </p>
                 </div>
