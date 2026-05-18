@@ -152,7 +152,10 @@ export default function AccountPage() {
 
     const selectStyle = { ...inputStyle, cursor: "pointer" };
 
-    const daysLogged     = allDays.filter(d => d.recovery !== null).length;
+    const daysLogged = allDays.filter(d =>
+        d.sessions.length > 0 &&
+        d.sessions.every(s => isComplete(s as Parameters<typeof isComplete>[0]))
+    ).length;
     const recoveredDays  = allDays.filter(d => d.recovery !== null);
     const avgEnergy      = recoveredDays.length > 0
     ? Math.round(recoveredDays.reduce((a, d) => a + (d.recovery?.energy ?? 0), 0) / recoveredDays.length)
