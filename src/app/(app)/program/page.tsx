@@ -93,6 +93,7 @@ const {
   const [copyTarget, setCopyTarget] = useState<ProgSession | null>(null);
   const [copyDate,   setCopyDate]   = useState(TODAY_STR);
   const [logCounter, setLogCounter] = useState(0);
+  const [recoveryAccordion, setRecoveryAccordion] = useState(false);
 
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
@@ -288,57 +289,138 @@ const {
         </div>
 
         {/* recovery summary */}
-        {selectedDay.recovery && (
-          <div
-            className="flex items-center gap-3 px-4 py-3 rounded-[10px] mb-4 cursor-pointer"
-            style={{ background: "var(--s1)", border: "1px solid #003322" }}
-            onClick={() => setRecoveryOpen(true)}
-          >
-            {(() => {
-              const e = [
-                { value: 5, color: "#3cffa0", emoji: "⚡", label: "Excellent" },
-                { value: 4, color: "#a8ff78", emoji: "💪", label: "Good"      },
-                { value: 3, color: "#e8ff3c", emoji: "🙂", label: "Moderate"  },
-                { value: 2, color: "#ff9055", emoji: "😐", label: "Low"       },
-                { value: 1, color: "#ff4c2b", emoji: "😴", label: "Exhausted" },
-              ].find(x => x.value === selectedDay.recovery!.energy)!;
-              return (
-                <>
-                  <span className="text-[18px] flex-shrink-0">{e.emoji}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[12px] font-medium" style={{ color: e.color }}>
-                        {e.label}
-                      </span>
-                      {selectedDay.recovery!.sleepHours && (
-                        <>
-                          <span style={{ color: "var(--br2)" }}>·</span>
-                          <span className="text-[11px]"
-                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                            {selectedDay.recovery!.sleepHours}h sleep
-                          </span>
-                        </>
-                      )}
-                      {selectedDay.recovery!.sore.length > 0 && (
-                        <>
-                          <span style={{ color: "var(--br2)" }}>·</span>
-                          <span className="text-[11px]"
-                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                            Sore: {selectedDay.recovery!.sore.slice(0, 2).join(", ")}
-                            {selectedDay.recovery!.sore.length > 2 ? ` +${selectedDay.recovery!.sore.length - 2}` : ""}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--mu)" }}>
-                    Edit
+        {selectedDay.recovery && (() => {
+          const e = [
+            { value: 5, color: "#3cffa0", emoji: "⚡", label: "Excellent" },
+            { value: 4, color: "#a8ff78", emoji: "💪", label: "Good"      },
+            { value: 3, color: "#e8ff3c", emoji: "🙂", label: "Moderate"  },
+            { value: 2, color: "#ff9055", emoji: "😐", label: "Low"       },
+            { value: 1, color: "#ff4c2b", emoji: "😴", label: "Exhausted" },
+          ].find(x => x.value === selectedDay.recovery!.energy)!;
+
+          const rec = selectedDay.recovery!;
+
+          return (
+            <div className="rounded-[10px] mb-[0.5rem] p-[0.5rem] overflow-hidden"
+              style={{ background: "var(--s1)", border: "1px solid #003322" }}>
+
+              {/* accordion header */}
+              <button
+                onClick={() => setRecoveryAccordion(o => !o)}
+                className="w-full flex items-center justify-between px-4 py-3 cursor-pointer"
+                style={{ background: "transparent", border: "none" }}
+              >
+                <div className="flex items-center">
+                  {/* <span className="text-[16px]">{e.emoji}</span> */}
+                  <span className="text-[10px] tracking-[1px] uppercase"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}>
+                    Recovery Summary
                   </span>
-                </>
-              );
-            })()}
-          </div>
-        )}
+                  {/* <span className="text-[11px] font-medium" style={{ color: e.color }}>
+                    · {e.label}
+                  </span> */}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={e => { e.stopPropagation(); setRecoveryOpen(true); }}
+                    className="text-[10px] cursor-pointer px-2 py-[3px] rounded-full"
+                    style={{
+                      fontFamily: "'DM Mono', monospace",
+                      background: "transparent",
+                      border:     "none",
+                      color:      "var(--mu2)",
+                    }}
+                  >
+                    Edit
+                  </button>
+                </div>
+              </button>
+
+              {/* accordion content */}
+              {recoveryAccordion && (
+                <div className="px-4 pb-4 pt-1"
+                  style={{ borderTop: "1px solid var(--br)" }}>
+
+                  {/* energy */}
+                  <div className="flex items-center justify-between py-[0.5rem]"
+                    style={{ borderBottom: "1px solid var(--br)" }}>
+                    <span className="text-[10px] tracking-[1.5px] uppercase"
+                      style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                      Energy
+                    </span>
+                    <span className="text-[10px] font-medium" style={{ color: e.color }}>
+                      {e.emoji} - {e.value} — {e.label}
+                    </span>
+                  </div>
+
+                  {/* sleep */}
+                  {(rec.sleepHours || rec.sleepQuality) && (
+                    <div className="flex items-center justify-between py-[0.5rem]"
+                      style={{ borderBottom: "1px solid var(--br)" }}>
+                      <span className="text-[10px] tracking-[1.5px] uppercase"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                        Sleep
+                      </span>
+                      <span className="text-[10px]"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+                        {rec.sleepHours ? `${rec.sleepHours}h` : ""}
+                        {rec.sleepHours && rec.sleepQuality ? " · " : ""}
+                        {rec.sleepQuality ? `Quality ${rec.sleepQuality}/5` : ""}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* sore areas */}
+                  {rec.sore.length > 0 && (
+                    <div className="py-[0.5rem]" style={{ borderBottom: rec.soreOther || rec.notes ? "1px solid var(--br)" : "none" }}>
+                      <span className="text-[10px] tracking-[1.5px] uppercase block mb-[0.5rem]"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                        Sore Areas
+                      </span>
+                      <div className="flex flex-wrap gap-[5px]">
+                        {rec.sore.map(area => (
+                          <span key={area}
+                            className="text-[10px] px-[0.5rem] py-[3px] rounded-full"
+                            style={{ fontFamily: "'DM Mono', monospace", background: "#1a0000", border: "1px solid var(--red)", color: "var(--red)" }}>
+                            {area}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* sore other */}
+                  {rec.soreOther && (
+                    <div className="py-[0.5rem]"
+                      style={{ borderBottom: rec.notes ? "1px solid var(--br)" : "none" }}>
+                      <div className="text-[10px] tracking-[1.5px] uppercase mb-[0.25rem]"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                        Other
+                      </div>
+                      <div className="text-[12px]"
+                        style={{ color: "var(--mu2)" }}>
+                        {rec.soreOther}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* notes */}
+                  {rec.notes && (
+                    <div className="pt-[0.5rem]">
+                      <span className="text-[10px] tracking-[1.5px] uppercase block mb-[0.25rem]"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                        Notes
+                      </span>
+                      <p className="text-[12px] italic" style={{ color: "var(--mu2)" }}>
+                        &ldquo;{rec.notes}&rdquo;
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* empty state */}
         {selectedDay.sessions.length === 0 && (
