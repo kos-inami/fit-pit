@@ -209,16 +209,19 @@ const {
 
   useEffect(() => {
     const dateParam = searchParams.get("date");
-    if (!dateParam) return;
-
     const id = setTimeout(() => {
-      setSelectedDate(dateParam);
-      const diffDays = Math.floor(
-        (new Date(dateParam).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-      );
-      setWeekOffset(Math.floor(diffDays / 7));
+      if (dateParam) {
+        setSelectedDate(dateParam);
+        const diffDays = Math.floor(
+          (new Date(dateParam).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+        );
+        setWeekOffset(Math.floor(diffDays / 7));
+      } else {
+        // no date param — reset to today
+        setSelectedDate(TODAY_STR);
+        setWeekOffset(0);
+      }
     }, 0);
-
     return () => clearTimeout(id);
   }, [searchParams]);
 
