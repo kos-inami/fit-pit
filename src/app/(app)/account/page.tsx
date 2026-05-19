@@ -73,7 +73,7 @@ export default function AccountPage() {
     type ProfileKey =
         | "primaryGoal" | "levelCrossFit" | "levelWorkout"
         | "levelWeightLifting" | "levelCardio" | "levelRunning"
-        | "weight" | "height" | "age";
+        | "weight" | "height" | "age" | "geminiKey";
 
     const [profile, setProfile] = useState<Record<ProfileKey, string>>({
         primaryGoal:        "",
@@ -85,6 +85,7 @@ export default function AccountPage() {
         weight:             "",
         height:             "",
         age:                "",
+        geminiKey:          "",
     });
     const [saving, setSaving] = useState(false);
     const [saved,  setSaved]  = useState(false);
@@ -105,6 +106,7 @@ export default function AccountPage() {
                 weight:             json.user.weight?.toString() ?? "",
                 height:             json.user.height?.toString() ?? "",
                 age:                json.user.age?.toString()    ?? "",
+                geminiKey:          json.user.geminiKey          ?? "",
             });
             }
         })
@@ -161,7 +163,7 @@ export default function AccountPage() {
     ? Math.round(recoveredDays.reduce((a, d) => a + (d.recovery?.energy ?? 0), 0) / recoveredDays.length)
     : 2;
 
-    const FEEL_COLOR = ["#5cb8ff","#e8ff3c","#3cffa0","#ff9055","#ff4c2b"];
+    // const FEEL_COLOR = ["#5cb8ff","#e8ff3c","#3cffa0","#ff9055","#ff4c2b"];
     // const FEEL_LABEL = ["Spent","Okay","Good","Pumped","Beast"];
     // const FEEL_EMOJI = ["😴","🙂","💪","🔥","⚡"];
     const ENERGY_META = [
@@ -360,6 +362,86 @@ export default function AccountPage() {
                 />
                 </div>
             ))}
+            </div>
+
+            {/* ── AI Coaching ── */}
+            <SectionLabel>AI Coaching</SectionLabel>
+            <div
+            className="rounded-[12px] px-4 mb-5"
+            style={{ background: "var(--s1)", border: "1px solid var(--br)" }}
+            >
+            <div className="py-[14px]">
+                <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] tracking-[1.5px] uppercase"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    Gemini API Key
+                </label>
+                <a    
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] tracking-[1px] uppercase"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--acc)", textDecoration: "none" }}
+                >
+                    Get free key →
+                </a>
+                </div>
+
+                <input
+                type="password"
+                placeholder="AIza..."
+                value={profile.geminiKey}
+                onChange={e => setField("geminiKey", e.target.value)}
+                className="w-full rounded-[8px] px-3 py-[10px] text-[13px] outline-none"
+                style={{
+                    background: "var(--s2)",
+                    border:     "1px solid var(--br)",
+                    color:      "var(--tx)",
+                    fontFamily: "'DM Mono', monospace",
+                }}
+                />
+
+                <div className="flex items-center gap-2 mt-2">
+                <div
+                    className="w-[7px] h-[7px] rounded-full flex-shrink-0"
+                    style={{
+                    background: profile.geminiKey ? "var(--grn)" : "var(--br2)",
+                    }}
+                />
+                <span className="text-[11px]"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    {profile.geminiKey ? "Key connected — AI coaching enabled" : "No key — AI coaching disabled"}
+                </span>
+                </div>
+
+                {!profile.geminiKey && (
+                <div className="mt-3 rounded-[8px] p-3"
+                    style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
+                    <div className="text-[10px] tracking-[1px] uppercase mb-2"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    How to get your free key
+                    </div>
+                    {[
+                    "Go to aistudio.google.com",
+                    "Sign in with Google",
+                    "Click Get API Key",
+                    "Create new key → Copy",
+                    "Paste above and Save",
+                    ].map((step, i) => (
+                    <div key={i} className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] w-[16px] h-[16px] rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ background: "var(--s1)", color: "var(--acc)", fontFamily: "'Bebas Neue', sans-serif" }}>
+                        {i + 1}
+                        </span>
+                        <span className="text-[11px]"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+                        {step}
+                        </span>
+                    </div>
+                    ))}
+                </div>
+                )}
+            </div>
             </div>
 
             {/* ── save button ── */}

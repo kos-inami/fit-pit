@@ -21,9 +21,20 @@ model User {
   weight             Float?
   height             Float?
   age                Int?
+  geminiKey          String?
   createdAt          DateTime    @default(now())
   days               Day[]
   maxRecords         MaxRecord[]
+  aiMessages         AIMessage[]
+}
+
+model AIMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      String   // "user" | "assistant"
+  content   String
+  createdAt DateTime @default(now())
 }
 
 model Day {

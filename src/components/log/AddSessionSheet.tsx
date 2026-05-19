@@ -132,6 +132,23 @@ export default function AddSessionSheet({
   return (
     <Sheet open={open} onClose={handleClose} title={isEdit ? "Edit Session" : "Add Session"}>
 
+
+      {/* screenshot scanner button — add mode only */}
+      {!isEdit && (
+        <button
+          onClick={() => setShowScanner(s => !s)}
+          className="w-full rounded-[8px] py-[9px] text-[11px] tracking-[1px] mb-[0.5rem] cursor-pointer"
+          style={{
+            fontFamily: "'DM Mono', monospace",
+            background: showScanner ? "var(--s3)" : "transparent",
+            border:     "1px solid var(--br2)",
+            color:      "var(--mu2)",
+          }}
+        >
+          {showScanner ? "✕ Close Scanner" : "📸 Use Screenshot"}
+        </button>
+      )}
+
       {/* type picker */}
       <div className="mb-[14px]">
         <Label>Session Type</Label>
@@ -170,22 +187,6 @@ export default function AddSessionSheet({
           ))}
         </div>
       </div>
-
-      {/* screenshot scanner button — add mode only */}
-      {!isEdit && (
-        <button
-          onClick={() => setShowScanner(s => !s)}
-          className="w-full rounded-[8px] py-[9px] text-[11px] tracking-[1px] mb-[0.5rem] cursor-pointer"
-          style={{
-            fontFamily: "'DM Mono', monospace",
-            background: showScanner ? "var(--s3)" : "transparent",
-            border:     "1px solid var(--br2)",
-            color:      "var(--mu2)",
-          }}
-        >
-          {showScanner ? "✕ Close Scanner" : "📸 Use Screenshot"}
-        </button>
-      )}
 
       {showScanner && (
         <div className="mb-4 rounded-[10px] p-4"
