@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
   try {
     const genAI = new GoogleGenerativeAI(user.geminiKey);
     const model = genAI.getGenerativeModel({
-      model:             "gemini-2.0-flash",
+      model:             "gemini-1.5-flash",
       systemInstruction: SYSTEM_PROMPT,
     });
 
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     const msg = err instanceof Error ? err.message : "Unknown error";
 
     // invalid key
-    if (msg.includes("API_KEY_INVALID") || msg.includes("401")) {
+    if (msg.includes("API_KEY_INVALID") || msg.includes("400") || msg.includes("API key not valid")) {
       return NextResponse.json(
         { error: "Invalid Gemini API key. Check Account → AI Coaching." },
         { status: 401 }

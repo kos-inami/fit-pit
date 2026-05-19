@@ -59,7 +59,7 @@ export async function PUT(req: NextRequest) {
             weight:             weight  ? parseFloat(weight)  : null,
             height:             height  ? parseFloat(height)  : null,
             age:                age     ? parseInt(age)       : null,
-            geminiKey: geminiKey !== undefined ? geminiKey : undefined,
+            geminiKey: geminiKey !== undefined ? geminiKey.trim() : undefined,
         },
         select: {
             id: true, name: true, email: true,
