@@ -235,6 +235,16 @@ const {
     setLogTarget(s);
   };
 
+  const [aiEnabled, setAiEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetch(`/api/profile?userId=${userId}`)
+      .then(r => r.json())
+      .then(json => setAiEnabled(!!json.user?.geminiKey))
+      .catch(() => {});
+  }, [userId]);
+
   // ────────────────────────────────────────────────────────
   return (
     <>
@@ -755,8 +765,10 @@ const {
                 className="flex border-t"
                 style={{ borderColor: `${meta.color}22` }}
               >
-                {/* AI button */}
-                {/* <button
+                
+              {/* AI button — only if key configured */}
+              {aiEnabled && (
+                <button
                   onClick={() => handleAI(s.id)}
                   disabled={s.aiLoading}
                   className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
@@ -769,7 +781,8 @@ const {
                   }}
                 >
                   {s.aiLoading ? "..." : s.aiNote ? "↻ AI" : "⚡ AI"}
-                </button> */}
+                </button>
+              )}
 
                 <button
                   onClick={() => setEditTarget(s)}
