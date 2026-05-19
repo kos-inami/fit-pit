@@ -59,13 +59,18 @@ async function fetchAI(
       }),
     });
     const json = await res.json();
+
+    if (!res.ok) {
+      return json.error ?? "AI request failed.";
+    }
+
     return (
       json.suggestion?.perSession?.["0"] ??
       json.suggestion?.summary ??
       `Focus on quality for ${name}.`
     );
   } catch {
-    return `Focus on controlled movement for ${name}.`;
+    return "Could not reach AI. Check your connection.";
   }
 }
 
