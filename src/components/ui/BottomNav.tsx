@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getTodayString } from "@/lib/utils";
 
 const TABS = [
   {
@@ -15,7 +16,7 @@ const TABS = [
     ),
   },
   {
-    href:  "/program",
+    href:  `/program?date=${getTodayString()}`,
     label: "Program",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="20" height="20">
