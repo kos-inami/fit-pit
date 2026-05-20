@@ -129,6 +129,21 @@ export default function AddSessionSheet({
 
   const handleClose = () => { reset(); onClose(); };
 
+  // when maxWeight changes, recalculate % for all sets that have weight
+  useEffect(() => {
+    if (!maxWeight) return;
+    const id = setTimeout(() => {
+      setPlanSets(prev => prev.map(set => ({
+        ...set,
+        maxWeight:  maxWeight,
+        percentage: set.weight !== null
+          ? Math.round((set.weight / maxWeight) * 100)
+          : set.percentage,
+      })));
+    }, 0);
+    return () => clearTimeout(id);
+  }, [maxWeight]);
+
   return (
     <Sheet open={open} onClose={handleClose} title={isEdit ? "Edit Session" : "Add Session"}>
 
