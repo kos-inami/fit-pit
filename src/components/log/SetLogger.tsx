@@ -26,26 +26,28 @@ export default function SetLogger({
     const addSet = () => {
         const newIndex = sets.length;
         const prev     = sets.length > 0 ? sets[sets.length - 1] : null;
-
-        // inherit mode from previous set or use default
         const prevMode = prev ? isPercent(sets.length - 1) : defaultPercent;
         setPctMode(p => ({ ...p, [newIndex]: prevMode }));
 
-        // copy percentage AND recalculate weight
-        const prevPct        = prev?.percentage ?? null;
+        const prevPct = prev?.percentage ?? null;
         const calculatedWeight =
-        prevMode && prevPct !== null && maxWeight
+            prevMode && prevPct !== null && maxWeight
             ? calcFromPercent(prevPct, maxWeight)
             : !prevMode
-            ? (prev?.weight ?? null)
-            : null;
+                ? (prev?.weight ?? null)
+                : null;
+        const calculatedPct =
+            !prevMode && calculatedWeight !== null && maxWeight
+            ? Math.round((calculatedWeight / maxWeight) * 100)
+            : prevMode ? prevPct : null;
 
         onChange([...sets, {
-        setNumber:  sets.length + 1,
-        weight:     calculatedWeight,
-        percentage: prevPct,
-        reps:       prev?.reps ?? null,
-        notes:      "",
+            setNumber:  sets.length + 1,
+            weight:     calculatedWeight,
+            percentage: calculatedPct,
+            maxWeight:  maxWeight ?? null,
+            reps:       prev?.reps ?? null,
+            notes:      "",
         }]);
     };
 
@@ -67,19 +69,32 @@ export default function SetLogger({
     };
 
     const updateKg = (index: number, value: string) => {
-        const w = value === "" ? null : parseFloat(value);
+        const w   = value === "" ? null : parseFloat(value);
+        const pct = w !== null && maxWeight
+            ? Math.round((w / maxWeight) * 100)
+            : null;
         onChange(sets.map((s, i) =>
-        i !== index ? s : { ...s, weight: w, percentage: null }
+            i !== index ? s : {
+            ...s,
+            weight:     w,
+            percentage: pct,
+            maxWeight:  maxWeight ?? null,
+            }
         ));
     };
 
     const updatePercent = (index: number, value: string) => {
         const pct        = value === "" ? null : parseFloat(value);
         const calculated = pct !== null && maxWeight
-        ? calcFromPercent(pct, maxWeight)
-        : null;
+            ? calcFromPercent(pct, maxWeight)
+            : null;
         onChange(sets.map((s, i) =>
-        i !== index ? s : { ...s, percentage: pct, weight: calculated }
+            i !== index ? s : {
+            ...s,
+            percentage: pct,
+            weight:     calculated,
+            maxWeight:  maxWeight ?? null,
+            }
         ));
     };
 
@@ -93,10 +108,26 @@ export default function SetLogger({
     };
 
     const toggleMode = (index: number) => {
-        setPctMode(p => ({ ...p, [index]: !isPercent(index) }));
-        onChange(sets.map((s, i) =>
-        i !== index ? s : { ...s, weight: null, percentage: null }
-        ));
+        const next = !isPercent(index);
+        setPctMode(p => ({ ...p, [index]: next }));
+
+        const currentSet = sets[index];
+        const refMax     = currentSet.maxWeight ?? maxWeight;
+
+        onChange(sets.map((s, i) => {
+            if (i !== index) return s;
+            if (next && s.weight !== null && refMax) {
+            // switching to % — calculate % from existing kg
+            const pct = Math.round((s.weight / refMax) * 100);
+            return { ...s, percentage: pct };
+            }
+            if (!next && s.percentage !== null && refMax) {
+            // switching to kg — calculate kg from existing %
+            const kg = calcFromPercent(s.percentage, refMax);
+            return { ...s, weight: kg };
+            }
+            return { ...s, weight: null, percentage: null };
+        }));
     };
 
     const inputBase: React.CSSProperties = {

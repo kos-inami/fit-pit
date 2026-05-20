@@ -25,12 +25,13 @@ export const SESSION_TYPE_META: Record<SessionType, SessionTypeMeta> = {
 
 // ─── SET ─────────────────────────────────────────────────────
 export type SetLog = {
-    id?:         string;
-    setNumber:   number;
-    weight:      number | null;
-    percentage:  number | null;
-    reps:        number | null;
-    notes:       string;
+    id?:        string;
+    setNumber:  number;
+    weight:     number | null;
+    percentage: number | null;
+    maxWeight?: number | null;  // frozen reference at plan time
+    reps:       number | null;
+    notes:      string;
 };
 
 // ─── SESSION ─────────────────────────────────────────────────

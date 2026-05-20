@@ -577,45 +577,47 @@ const handleAI = async (id: string) => {
 
               {/* ── PLAN: sets (Strength/WL/Accessory) ── */}
               {meta.useSets && s.planSets.length > 0 && (
-                <div className="mx-4 mb-3 p-[0.5rem]">
-                  <div
-                    className="text-[12px] tracking-[1.5px] uppercase mb-[0.25rem]"
-                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-                  >
+                <div className="mx-4 mb-3">
+                  <div className="text-[9px] tracking-[1.5px] uppercase mb-1"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
                     Planned Sets
                   </div>
-                  <div className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 mb-1 px-1">
-                    {["#","KG","REPS","NOTE"].map(h => (
-                      <span
-                        key={h}
+
+                  {/* headers */}
+                  <div className="grid grid-cols-[22px_1fr_1fr_1fr_1fr] gap-2 mb-1 px-1">
+                    {["#", "KG", "%", "REPS", "NOTES"].map(h => (
+                      <span key={h}
                         className="text-[9px] tracking-[1px] uppercase text-center"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-                      >
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
                         {h}
                       </span>
                     ))}
                   </div>
+
+                  {/* rows */}
                   {s.planSets.map(set => (
-                    <div key={set.setNumber} className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 mb-1">
-                      <span
-                        className="text-[12px] text-center"
-                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--mu2)" }}
-                      >
+                    <div key={set.setNumber} className="grid grid-cols-[22px_1fr_1fr_1fr_1fr] gap-2 mb-1">
+                      <span className="text-[12px] text-center"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--mu2)" }}>
                         {set.setNumber}
                       </span>
-                      <span
-                        className="text-[12px] text-center"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}
-                      >
-                        {set.weight ?? "—"}
+                      <span className="text-[12px] text-center"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+                        {set.weight != null ? `${set.weight}kg` : "—"}
                       </span>
-                      <span
-                        className="text-[12px] text-center"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}
-                      >
+                      <span className="text-[12px] text-center"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--acc)" }}>
+                        {set.percentage != null
+                          ? `${set.percentage}%`
+                          : set.weight != null && set.maxWeight
+                            ? `${Math.round((set.weight / set.maxWeight) * 100)}%`
+                            : "—"}
+                      </span>
+                      <span className="text-[12px] text-center"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
                         {set.reps ?? "—"}
                       </span>
-                      <span className="text-[12px]" style={{ color: "var(--mu)" }}>
+                      <span className="text-[11px]" style={{ color: "var(--mu)" }}>
                         {set.notes || "—"}
                       </span>
                     </div>
@@ -706,7 +708,7 @@ const handleAI = async (id: string) => {
               {meta.useSets && s.sets.length > 0 && (
                 <div className="mx-4 mb-3 p-[0.5rem]">
                   <div className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 mb-1 px-1">
-                    {["#","KG","REPS","NOTE"].map(h => (
+                    {["#","WEIGHT","REPS","NOTE"].map(h => (
                       <span
                         key={h}
                         className="text-[12px] tracking-[1px] uppercase text-center"
