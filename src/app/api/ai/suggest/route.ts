@@ -128,17 +128,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ suggestion });
 
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Gemini full error:", err);
+    console.error("Gemini error message:", msg);
 
-    // invalid key
-    if (msg.includes("API_KEY_INVALID") || msg.includes("400") || msg.includes("API key not valid")) {
+    if (msg.includes("API_KEY_INVALID") || msg.includes("API key not valid")) {
       return NextResponse.json(
         { error: "Invalid Gemini API key. Check Account → AI Coaching." },
         { status: 401 }
       );
     }
-
-    console.error("Gemini error:", msg);
-    return NextResponse.json({ error: "AI request failed" }, { status: 500 });
+    if (msg.includes("quota") || msg.includes("429")) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded. Try again in a minute." },
+        { status: 429 }
+      );
+    }
+    return NextResponse.json({ error: `AI request failed: ${msg}` }, { status: 500 });
   }
 }
