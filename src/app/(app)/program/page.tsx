@@ -82,7 +82,7 @@ function ProgramPage() {
 const {
   days, getDay,
   addSession, editSession, removeSession,
-  saveResult, clearResult, setAINote, setAILoading,
+  saveResult, clearResult, setAINote, clearAINote, setAILoading,
   saveRecovery, deleteRecovery,
 } = useProgram();
 
@@ -165,12 +165,44 @@ const {
     showFlash("Result saved");
   };
 
-  const handleAI = async (id: string) => {
-    const s = selectedDay.sessions.find(x => x.id === id);
+const handleAI = async (id: string) => {
+  const s = selectedDay.sessions.find(x => x.id === id);
     if (!s) return;
     setAILoading(selectedDate, id, true);
-    const note = await fetchAI(s.name, s.type, s.desc, userId);
-    setAINote(selectedDate, id, note);
+
+    try {
+      const res  = await fetch("/api/ai/suggest", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          sessions: [{
+            index:    0,
+            id:       s.id,
+            type:     s.type,
+            name:     s.name,
+            desc:     s.desc,
+            planSets: s.planSets,
+            rounds:   s.rounds,
+          }],
+          userId,
+        }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        setAINote(selectedDate, id, json.error ?? "AI request failed.");
+        return;
+      }
+
+      const note =
+        json.suggestion?.perSession?.["0"] ??
+        json.suggestion?.summary ??
+        `Focus on quality for ${s.name}.`;
+
+      setAINote(selectedDate, id, note);
+    } catch {
+      setAINote(selectedDate, id, "Could not reach AI. Check your connection.");
+    }
   };
 
   const handleRecovery = (data: RecoveryLog) => {
@@ -513,21 +545,29 @@ const {
 
               {/* AI note */}
               {s.aiNote && (
-                <div
-                  className="mx-4 mb-3 rounded-[8px] p-3"
-                  style={{ background: "#001a0d", border: "1px solid #003322" }}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span
-                      className="w-[6px] h-[6px] rounded-full flex-shrink-0"
-                      style={{ background: "var(--grn)", animation: "pulse 2s infinite" }}
-                    />
-                    <span
-                      className="text-[12px] tracking-[2px] uppercase"
-                      style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}
+                <div className="mx-4 mb-3 rounded-[8px] p-3"
+                  style={{ background: "#001a0d", border: "1px solid #003322" }}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-[6px] h-[6px] rounded-full flex-shrink-0"
+                        style={{ background: "var(--grn)", animation: "pulse 2s infinite" }} />
+                      <span className="text-[9px] tracking-[2px] uppercase"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}>
+                        Coach Note
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => clearAINote(selectedDate, s.id)}
+                      className="text-[11px] cursor-pointer"
+                      style={{
+                        background: "none",
+                        border:     "none",
+                        color:      "var(--mu)",
+                        fontFamily: "'DM Mono', monospace",
+                      }}
                     >
-                      Coach Note
-                    </span>
+                      ✕
+                    </button>
                   </div>
                   <p className="text-[12px] leading-relaxed" style={{ color: "#b8d4c8" }}>
                     {s.aiNote}
@@ -765,7 +805,7 @@ const {
                 className="flex border-t"
                 style={{ borderColor: `${meta.color}22` }}
               >
-                
+
               {/* AI button — only if key configured */}
               {aiEnabled && (
                 <button

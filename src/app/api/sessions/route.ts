@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const body = await req.json();
-  const { sessionId, name, desc, rounds, planSets } = body;
+  const { sessionId, name, desc, rounds, planSets, aiNote } = body;
 
   if (!sessionId) {
     return NextResponse.json({ error: "sessionId required" }, { status: 400 });
@@ -78,6 +78,7 @@ export async function PATCH(req: NextRequest) {
         ...(desc     !== undefined && { desc     }),
         ...(rounds   !== undefined && { rounds   }),
         ...(planSets !== undefined && { planSets }),
+        ...("aiNote" in body      && { aiNote   }),
       },
     });
     return NextResponse.json({ session });

@@ -14,10 +14,10 @@ export interface ProgSession {
   type:         SessionType;
   name:         string;
   desc:         string;
-  planSets:     SetLog[];     // planning targets
-  sets:         SetLog[];     // result sets (actual)
-  rounds:       RoundEntry[]; // planning rounds
-  resultRounds: RoundEntry[]; // result rounds (actual)
+  planSets:     SetLog[];
+  sets:         SetLog[];
+  rounds:       RoundEntry[];
+  resultRounds: RoundEntry[];
   result:       string | null;
   notes:        string | null;
   aiNote:       string | null;
@@ -40,21 +40,70 @@ export interface ProgDay {
 }
 
 interface ProgramContextType {
-  days:          Record<string, ProgDay>;
-  getDay:        (date: string) => ProgDay;
-  addSession:    (date: string, s: Omit<ProgSession, "id" | "aiLoading" | "aiNote">) => Promise<void>;
-  editSession:   (date: string, id: string, data: Partial<Pick<ProgSession, "name" | "desc" | "rounds" | "planSets">>) => Promise<void>;
-  removeSession: (date: string, id: string) => Promise<void>;
-  saveResult:    (date: string, id: string, data: Partial<Pick<ProgSession, "result" | "notes" | "sets" | "resultRounds">>) => Promise<void>;
-  setAINote:     (date: string, id: string, note: string) => void;
-  setAILoading:  (date: string, id: string, loading: boolean) => void;
-  setDayAI:      (date: string, ai: AIResult) => void;
-  saveRecovery:  (date: string, rec: RecoveryLog) => Promise<void>;
+  days:           Record<string, ProgDay>;
+  getDay:         (date: string) => ProgDay;
+  addSession:     (date: string, s: Omit<ProgSession, "id" | "aiLoading" | "aiNote">) => Promise<void>;
+  editSession:    (date: string, id: string, data: Partial<Pick<ProgSession, "name" | "desc" | "rounds" | "planSets">>) => Promise<void>;
+  removeSession:  (date: string, id: string) => Promise<void>;
+  saveResult:     (date: string, id: string, data: Partial<Pick<ProgSession, "result" | "notes" | "sets" | "resultRounds">>) => Promise<void>;
+  clearResult:    (date: string, id: string) => Promise<void>;
+  setAINote:      (date: string, id: string, note: string) => void;
+  clearAINote:    (date: string, id: string) => Promise<void>;
+  setAILoading:   (date: string, id: string, loading: boolean) => void;
+  setDayAI:       (date: string, ai: AIResult) => void;
+  saveRecovery:   (date: string, rec: RecoveryLog) => Promise<void>;
   deleteRecovery: (date: string) => Promise<void>;
-  clearResult: (date: string, id: string) => Promise<void>;
 }
 
 const ProgramContext = createContext<ProgramContextType | null>(null);
+
+// ─── DB response types ────────────────────────────────────────
+interface DBSet {
+  id:          string;
+  setNumber:   number;
+  weight:      number | null;
+  reps:        number | null;
+  notes:       string | null;
+  percentage?: number | null;
+}
+
+interface DBSession {
+  id:           string;
+  type:         string;
+  name:         string;
+  desc:         string | null;
+  planSets:     string | null;
+  rounds:       string | null;
+  resultRounds: string | null;
+  result:       string | null;
+  notes:        string | null;
+  aiNote:       string | null;
+  sets:         DBSet[];
+}
+
+interface DBRecovery {
+  energy:       number;
+  sore:         string;
+  soreOther:    string | null;
+  sleepHours:   number | null;
+  sleepQuality: number | null;
+  notes:        string | null;
+}
+
+interface DBAISuggestion {
+  summary:      string;
+  perSession:   string;
+  chips:        string;
+  recoveryNote: string | null;
+}
+
+interface DBDay {
+  id:           string;
+  date:         string;
+  sessions:     DBSession[];
+  recovery:     DBRecovery | null;
+  aiSuggestion: DBAISuggestion | null;
+}
 
 // ─── helpers ─────────────────────────────────────────────────
 function getWeekAndRecentDates(): string[] {
@@ -79,31 +128,29 @@ function getWeekAndRecentDates(): string[] {
   return [...new Set([...week, ...past])];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function transformDay(dbDay: any): ProgDay {
+function transformDay(dbDay: DBDay): ProgDay {
   return {
     id:   dbDay.id,
     date: dbDay.date,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sessions: (dbDay.sessions ?? []).map((s: any) => ({
+    sessions: dbDay.sessions.map(s => ({
       id:           s.id,
       type:         s.type as SessionType,
       name:         s.name,
       desc:         s.desc         ?? "",
       planSets:     s.planSets     ? JSON.parse(s.planSets)     : [],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sets:         (s.sets ?? []).map((set: any) => ({
-        id:        set.id,
-        setNumber: set.setNumber,
-        weight:    set.weight,
-        reps:      set.reps,
-        notes:     set.notes ?? "",
+      sets:         s.sets.map(set => ({
+        id:         set.id,
+        setNumber:  set.setNumber,
+        weight:     set.weight,
+        reps:       set.reps,
+        notes:      set.notes      ?? "",
+        percentage: set.percentage ?? null,
       })),
       rounds:       s.rounds       ? JSON.parse(s.rounds)       : [],
       resultRounds: s.resultRounds ? JSON.parse(s.resultRounds) : [],
       result:       s.result       ?? null,
       notes:        s.notes        ?? null,
-      aiNote:       null,
+      aiNote:       s.aiNote       ?? null,
       aiLoading:    false,
     })),
     aiSuggestion: dbDay.aiSuggestion ? {
@@ -147,7 +194,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       const res  = await fetch(`/api/sessions?userId=${userId}&date=${date}`);
       const json = await res.json();
       if (json.day) {
-        setDays(prev => ({ ...prev, [date]: transformDay(json.day) }));
+        setDays(prev => ({ ...prev, [date]: transformDay(json.day as DBDay) }));
       } else {
         setDays(prev => ({
           ...prev,
@@ -173,8 +220,8 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     const res  = await fetch(`/api/sessions?userId=${userId}&date=${date}`);
     const json = await res.json();
     if (json.day?.id) {
-      updateDay(date, d => ({ ...d, id: json.day.id }));
-      return json.day.id;
+      updateDay(date, d => ({ ...d, id: json.day.id as string }));
+      return json.day.id as string;
     }
     return null;
   }, [userId, days, updateDay]);
@@ -204,9 +251,8 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       });
       const json = await res.json();
       if (!json.session) throw new Error("No session returned");
-      const realId = json.session.id;
+      const realId = json.session.id as string;
 
-      // save planSets as JSON
       if (s.planSets.length > 0) {
         await fetch("/api/sessions", {
           method:  "PATCH",
@@ -215,7 +261,6 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      // save planning rounds as JSON
       if (s.rounds.length > 0) {
         await fetch(`/api/sessions/${realId}/result`, {
           method:  "POST",
@@ -314,7 +359,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     } catch { console.error("Failed to save result"); }
   }, [updateDay]);
 
-  // ── remove the result ───────────────────────────────────────────────────
+  // ── clearResult ──────────────────────────────────────────
   const clearResult = useCallback(async (date: string, id: string) => {
     updateDay(date, d => ({
       ...d,
@@ -325,13 +370,11 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       ),
     }));
     try {
-      // clear sets
       await fetch(`/api/sessions/${id}/sets`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ sets: [] }),
       });
-      // clear result fields
       await fetch(`/api/sessions/${id}/result`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -341,9 +384,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
           resultRounds: JSON.stringify([]),
         }),
       });
-    } catch {
-      console.error("Failed to clear result");
-    }
+    } catch { console.error("Failed to clear result"); }
   }, [updateDay]);
 
   // ── AI ───────────────────────────────────────────────────
@@ -354,6 +395,22 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
         s.id === id ? { ...s, aiNote: note, aiLoading: false } : s
       ),
     }));
+  }, [updateDay]);
+
+  const clearAINote = useCallback(async (date: string, id: string) => {
+    updateDay(date, d => ({
+      ...d,
+      sessions: d.sessions.map(s =>
+        s.id === id ? { ...s, aiNote: null } : s
+      ),
+    }));
+    try {
+      await fetch("/api/sessions", {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ sessionId: id, aiNote: null }),
+      });
+    } catch { console.error("Failed to clear AI note"); }
   }, [updateDay]);
 
   const setAILoading = useCallback((date: string, id: string, loading: boolean) => {
@@ -388,28 +445,24 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
           notes:        rec.notes        ?? "",
         }),
       });
-    } catch {
-      console.error("Failed to save recovery");
-    }
+    } catch { console.error("Failed to save recovery"); }
   }, [updateDay, ensureDayId]);
 
-  // -- delete Recovery ---
+  // ── deleteRecovery ───────────────────────────────────────
   const deleteRecovery = useCallback(async (date: string) => {
     const dayId = days[date]?.id;
     updateDay(date, d => ({ ...d, recovery: null }));
     if (!dayId) return;
     try {
       await fetch(`/api/recovery?dayId=${dayId}`, { method: "DELETE" });
-    } catch {
-      console.error("Failed to delete recovery");
-    }
+    } catch { console.error("Failed to delete recovery"); }
   }, [days, updateDay]);
 
   return (
     <ProgramContext.Provider value={{
       days, getDay,
       addSession, editSession, removeSession,
-      saveResult, clearResult, setAINote, setAILoading,
+      saveResult, clearResult, setAINote, clearAINote, setAILoading,
       setDayAI, saveRecovery, deleteRecovery,
     }}>
       {children}

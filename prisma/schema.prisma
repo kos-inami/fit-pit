@@ -63,6 +63,7 @@ model Session {
   rounds       String?
   resultRounds String?
   planSets     String?   // planning targets (JSON)
+  aiNote       String?
   sets         Set[]     // result sets (actual performance)
   order        Int      @default(0)
   createdAt    DateTime @default(now())
