@@ -12,10 +12,8 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import TypeChip from "@/components/session/TypeChip";
 import { useProgram, ProgSession } from "@/contexts/ProgramContext";
 import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry, RecoveryLog } from "@/types";
-import { getLocalDateString, getTodayString } from "@/lib/utils";
+import { getLocalDateString, getTodayString, calculateExpectedMax } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
-
-
 
 
 // ─── helpers ─────────────────────────────────────────────────
@@ -801,6 +799,24 @@ const handleAI = async (id: string) => {
                   </p>
                 </div>
               )}
+
+              {/* ── Expected Max ── */}
+              {meta.useSets && s.sets.length > 0 && (() => {
+                const expected = calculateExpectedMax(s.sets, s.planSets);
+                if (!expected) return null;
+                return (
+                  <div className="p-[0.5rem] flex items-center"
+                    style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
+                    <span className="text-[11px] mr-[0.5rem]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                      Expected Max
+                    </span>
+                    <span className="text-[16px] tracking-[1px]"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
+                      {expected.min}–{expected.max} kg
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* ── action row ── */}
               <div
