@@ -29,23 +29,25 @@ export default function SetLogger({
         const prevMode = prev ? isPercent(sets.length - 1) : defaultPercent;
         setPctMode(p => ({ ...p, [newIndex]: prevMode }));
 
-        const prevPct = prev?.percentage ?? null;
+        const refMax      = maxWeight ?? prev?.maxWeight ?? null;
+        const prevPct     = prev?.percentage ?? null;
+        const prevWeight  = prev?.weight     ?? null;
+
         const calculatedWeight =
-            prevMode && prevPct !== null && maxWeight
-            ? calcFromPercent(prevPct, maxWeight)
-            : !prevMode
-                ? (prev?.weight ?? null)
-                : null;
+            prevMode && prevPct !== null && refMax
+            ? calcFromPercent(prevPct, refMax)
+            : !prevMode ? prevWeight : null;
+
         const calculatedPct =
-            !prevMode && calculatedWeight !== null && maxWeight
-            ? Math.round((calculatedWeight / maxWeight) * 100)
+            !prevMode && calculatedWeight !== null && refMax
+            ? Math.round((calculatedWeight / refMax) * 100)
             : prevMode ? prevPct : null;
 
         onChange([...sets, {
             setNumber:  sets.length + 1,
             weight:     calculatedWeight,
             percentage: calculatedPct,
-            maxWeight:  maxWeight ?? null,
+            maxWeight:  refMax,
             reps:       prev?.reps ?? null,
             notes:      "",
         }]);
@@ -78,7 +80,7 @@ export default function SetLogger({
             ...s,
             weight:     w,
             percentage: pct,
-            maxWeight:  maxWeight ?? null,
+            maxWeight:  maxWeight ?? s.maxWeight ?? null,
             }
         ));
     };
@@ -108,23 +110,17 @@ export default function SetLogger({
     };
 
     const toggleMode = (index: number) => {
-        const next = !isPercent(index);
+        const next   = !isPercent(index);
+        const refMax = sets[index]?.maxWeight ?? maxWeight;
         setPctMode(p => ({ ...p, [index]: next }));
-
-        const currentSet = sets[index];
-        const refMax     = currentSet.maxWeight ?? maxWeight;
 
         onChange(sets.map((s, i) => {
             if (i !== index) return s;
             if (next && s.weight !== null && refMax) {
-            // switching to % — calculate % from existing kg
-            const pct = Math.round((s.weight / refMax) * 100);
-            return { ...s, percentage: pct };
+            return { ...s, percentage: Math.round((s.weight / refMax) * 100), maxWeight: refMax };
             }
             if (!next && s.percentage !== null && refMax) {
-            // switching to kg — calculate kg from existing %
-            const kg = calcFromPercent(s.percentage, refMax);
-            return { ...s, weight: kg };
+            return { ...s, weight: calcFromPercent(s.percentage, refMax), maxWeight: refMax };
             }
             return { ...s, weight: null, percentage: null };
         }));
