@@ -247,12 +247,17 @@ const handleAI = async (id: string) => {
     const id = setTimeout(() => {
       if (dateParam) {
         setSelectedDate(dateParam);
-        const diffDays = Math.floor(
-          (new Date(dateParam).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+
+        // both dates at local midnight to avoid timezone offset
+        const target = new Date(dateParam + "T00:00:00");
+        const today  = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const diffDays = Math.round(
+          (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
         );
         setWeekOffset(Math.floor(diffDays / 7));
       } else {
-        // no date param — reset to today
         setSelectedDate(TODAY_STR);
         setWeekOffset(0);
       }
