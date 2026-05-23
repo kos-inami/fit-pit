@@ -478,7 +478,7 @@ const handleAI = async (id: string) => {
         {/* empty state */}
         {selectedDay.sessions.length === 0 && (
           <div
-            className="rounded-[12px] py-10 text-center"
+            className="rounded-[12px] py-[1.5rem] text-center"
             style={{ background: "var(--s1)", border: "1px dashed var(--br2)" }}
           >
             <div className="text-[24px] mb-2">📋</div>
@@ -512,7 +512,7 @@ const handleAI = async (id: string) => {
               {/* head */}
               <div className="flex items-start justify-between px-4 pt-3 pb-2">
                 <div className="flex-1 min-w-0 pr-2">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap mb-[0.5rem]">
                     <span
                       className="text-[20px] tracking-[1px] mx-[.5rem] my-[.5rem]"
                       style={{ fontFamily: "'Bebas Neue', sans-serif" }}

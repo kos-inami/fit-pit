@@ -152,7 +152,7 @@ export default function HomePage() {
                   }}>
                   <div className="py-[0.25rem] min-w-0">
                     <TypeChip type={s.type} />
-                    <div className="text-[18px] tracking-[0.5px] truncate px-[0.25rem] mt-[0.5rem]"
+                    <div className="text-[18px] tracking-[0.5px] px-[0.25rem] mt-[0.5rem]"
                       style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                       {s.name}
                     </div>
