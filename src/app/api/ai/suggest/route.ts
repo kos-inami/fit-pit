@@ -2,30 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "@/lib/db";
 
-const SYSTEM_PROMPT = `You are an expert CrossFit and strength coach AI. You know this athlete's complete training history, max records, and recovery data. Give highly specific, personalised coaching advice.
+const SYSTEM_PROMPT = `You are an expert CrossFit and strength coach AI. Give highly specific, personalised coaching advice based on today's sessions and recovery data. 
 
 Always include:
-- For strength/weightlifting: exact weight recommendations in kg based on their max records and recent performance
-- For WODs/conditioning: target time, pace, or round splits based on past results
-- For running: target pace per km based on past run times
-- For recovery advice: adjust intensity based on energy and soreness levels
+- For strength/weightlifting: specific weight recommendations in kg
+- For WODs/conditioning: target time or round splits
+- For running: target pace per km
 
-Be direct and data-driven. 2-3 sentences max per session.
+Be direct, 2-3 sentences per session. Reference recovery data when relevant.
 
-Always respond ONLY in valid JSON with no markdown:
+Respond ONLY in valid JSON with no markdown:
 {
-  "summary": "overall coaching note for today",
+  "summary": "brief overall note for today",
   "perSession": {
-    "0": "specific advice with exact weights or paces for session 1",
+    "0": "specific advice for session 1",
     "1": "specific advice for session 2"
   },
-  "chips": ["short label 1", "short label 2", "short label 3"],
+  "chips": ["label 1", "label 2"],
   "recoveryNote": "1 sentence on readiness"
 }`;
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { sessions, userId } = body;
+  const { sessions, userId, recovery } = body;
 
   if (!sessions?.length || !userId) {
     return NextResponse.json({ error: "sessions and userId required" }, { status: 400 });
@@ -44,115 +43,83 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── fetch conversation history ─────────────────────────
-  const history = await db.aIMessage.findMany({
+  // ── fetch recent conversation history ─────────────────
+  const rawHistory = await db.aIMessage.findMany({
     where:   { userId },
-    orderBy: { createdAt: "asc" },
-    take:    40,
+    orderBy: { createdAt: "desc" },
+    take:    6, // last 3 exchanges only
   });
 
-  // ── fetch past training data ───────────────────────────
-  const today    = new Date().toISOString().split("T")[0];
-  const pastDays = await db.day.findMany({
-    where: { userId, date: { lt: today } },
-    include: {
-      sessions: {
-        include: { sets: { orderBy: { setNumber: "asc" } } },
-      },
-      recovery: true,
-    },
-    orderBy: { date: "desc" },
-    take:    14,
-  });
+  const history = rawHistory.reverse().map(m => ({
+    ...m,
+    content: m.content.slice(0, 800), // cap each message
+  }));
 
-  // ── fetch max records ──────────────────────────────────
-  const maxRecords = await db.maxRecord.findMany({
-    where:   { userId },
-    orderBy: { date: "desc" },
-  });
+  // ── build today's context (compact) ───────────────────
+  const recoveryText = recovery
+    ? `Energy: ${recovery.energy}/5 | Sleep: ${recovery.sleepHours ?? "?"}h (quality ${recovery.sleepQuality ?? "?"}/5) | Sore: ${Array.isArray(recovery.sore) ? recovery.sore.join(", ") || "none" : "none"}${recovery.notes ? ` | Notes: ${recovery.notes}` : ""}`
+    : "No recovery logged today";
 
-  // ── build max records context ──────────────────────────
-  const maxRecordsText = maxRecords.length > 0
-    ? maxRecords
-        .reduce((acc: Record<string, number>, r) => {
-          if (r.weight && (!acc[r.movement] || r.weight > acc[r.movement])) {
-            acc[r.movement] = r.weight;
-          }
-          return acc;
-        }, {} as Record<string, number>)
-    : {};
-
-  const maxRecordsStr = Object.entries(maxRecordsText)
-    .map(([movement, weight]) => `${movement}: ${weight}kg`)
-    .join(", ") || "No max records logged yet";
-
-  // ── build training history ─────────────────────────────
-  let historyText = "No past training data yet.";
-
-  if (pastDays.length > 0) {
-    historyText = pastDays.map(d => {
-      const sessText = d.sessions.map(s => {
-        if (s.sets.length > 0) {
-          const setsStr = s.sets
-            .map(set => `Set ${set.setNumber}: ${set.weight ?? "—"}kg × ${set.reps ?? "—"} reps`)
-            .join(", ");
-          return `${s.name} (${s.type}): ${setsStr}. Result: ${s.result || "none"}. Notes: ${s.notes || "none"}`;
-        }
-        if (s.resultRounds) {
-          try {
-            const rounds = JSON.parse(s.resultRounds);
-            const str = rounds
-              .map((r: { roundNumber: number; details?: string; weight?: number; reps?: number; other?: string }) =>
-                `Rd${r.roundNumber}: ${r.details || ""}${r.weight ? ` ${r.weight}kg` : ""}${r.reps ? ` ${r.reps}reps` : ""}${r.other ? ` ${r.other}` : ""}`)
-              .join(", ");
-            return `${s.name} (${s.type}): ${str}. Result: ${s.result || "none"}. Notes: ${s.notes || "none"}`;
-          } catch { /* fall through */ }
-        }
-        return `${s.name} (${s.type}): Result: ${s.result || "none"}. Notes: ${s.notes || "none"}`;
-      }).join(" | ");
-
-      const rec = d.recovery
-        ? `Energy ${d.recovery.energy}/5, Sleep: ${d.recovery.sleepHours ?? "?"}h (quality ${d.recovery.sleepQuality ?? "?"}/5), Sore: ${d.recovery.sore}`
-        : "No recovery";
-
-      return `[${d.date}] ${sessText || "Rest"} — Recovery: ${rec}`;
-    }).join("\n");
-  }
-
-  // ── build today's sessions context ─────────────────────
-  const todaySessionsText = sessions.map((s: {
-    index: number; id?: string; type: string; name: string;
-    desc?: string; planSets?: { setNumber: number; weight?: number | null; percentage?: number | null; reps?: number | null }[];
-    rounds?: { roundNumber: number; details?: string; weight?: number | null; reps?: number | null; other?: string }[];
+  const sessionsText = sessions.map((s: {
+    index:        number;
+    id?:          string;
+    type:         string;
+    name:         string;
+    desc?:        string;
+    planSets?:    { setNumber: number; weight?: number | null; percentage?: number | null; reps?: number | null }[];
+    rounds?:      { roundNumber: number; details?: string; weight?: number | null; reps?: number | null; other?: string }[];
+    sets?:        { setNumber: number; weight?: number | null; reps?: number | null }[];
+    resultRounds?: { roundNumber: number; details?: string; weight?: number | null; reps?: number | null; other?: string }[];
+    result?:      string | null;
+    notes?:       string | null;
   }, i: number) => {
-    let plan = s.desc ? `Description: ${s.desc}` : "";
+    const parts: string[] = [`${i + 1}. ${s.name} (${s.type})`];
+
+    if (s.desc) parts.push(`Plan: ${s.desc}`);
 
     if (s.planSets?.length) {
-      const setsStr = s.planSets.map(set =>
+      const ps = s.planSets.map(set =>
         set.percentage
-          ? `Set ${set.setNumber}: ${set.percentage}% (≈${set.weight ?? "?"}kg) × ${set.reps ?? "?"} reps`
-          : `Set ${set.setNumber}: ${set.weight ?? "?"}kg × ${set.reps ?? "?"} reps`
+          ? `Set ${set.setNumber}: ${set.percentage}%→${set.weight ?? "?"}kg×${set.reps ?? "?"}`
+          : `Set ${set.setNumber}: ${set.weight ?? "?"}kg×${set.reps ?? "?"}`
       ).join(", ");
-      plan += ` Planned sets: ${setsStr}`;
+      parts.push(`Planned: ${ps}`);
     }
 
     if (s.rounds?.length) {
-      const roundsStr = s.rounds.map(r =>
-        `Rd${r.roundNumber}: ${r.details || ""}${r.weight ? ` ${r.weight}kg` : ""}${r.reps ? ` ${r.reps}reps` : ""}${r.other ? ` ${r.other}` : ""}`
+      const rs = s.rounds.map(r =>
+        `Rd${r.roundNumber}: ${r.details || ""}${r.weight ? ` ${r.weight}kg` : ""}${r.reps ? ` ${r.reps}reps` : ""}`
       ).join(", ");
-      plan += ` Planned rounds: ${roundsStr}`;
+      parts.push(`Planned rounds: ${rs}`);
     }
 
-    return `${i + 1}. ${s.name} (${s.type})${plan ? ` — ${plan.trim()}` : ""}`;
+    if (s.sets?.length) {
+      const rs = s.sets.map(set =>
+        `Set ${set.setNumber}: ${set.weight ?? "?"}kg×${set.reps ?? "?"}`
+      ).join(", ");
+      parts.push(`Result sets: ${rs}`);
+    }
+
+    if (s.resultRounds?.length) {
+      const rr = s.resultRounds.map(r =>
+        `Rd${r.roundNumber}: ${r.details || ""}${r.weight ? ` ${r.weight}kg` : ""}${r.reps ? ` ${r.reps}reps` : ""}${r.other ? ` ${r.other}` : ""}`
+      ).join(", ");
+      parts.push(`Result rounds: ${rr}`);
+    }
+
+    if (s.result) parts.push(`Result: ${s.result}`);
+    if (s.notes)  parts.push(`Notes: ${s.notes}`);
+
+    return parts.join(" | ");
   }).join("\n");
 
-  const newUserMessage = `MAX RECORDS:\n${maxRecordsStr}\n\nTRAINING HISTORY (last 14 days):\n${historyText}\n\nTODAY'S PLANNED SESSIONS:\n${todaySessionsText}\n\nProvide specific coaching advice with exact weight or pace recommendations where applicable.`;
+  const newUserMessage = `TODAY'S RECOVERY:\n${recoveryText}\n\nTODAY'S SESSIONS:\n${sessionsText}\n\nProvide coaching advice.`;
 
   // ── call Gemini ────────────────────────────────────────
   try {
     const genAI = new GoogleGenerativeAI(user.geminiKey.trim());
     const model = genAI.getGenerativeModel({
-      model:             "gemini-2.0-flash",
+      model:             "gemini-2.0-flash-lite",
       systemInstruction: SYSTEM_PROMPT,
     });
 
@@ -173,7 +140,7 @@ export async function POST(req: NextRequest) {
       ],
     });
 
-    // ── parse response ─────────────────────────────────
+    // ── parse ──────────────────────────────────────────
     const clean      = text.replace(/```json|```/g, "").trim();
     const suggestion = JSON.parse(clean);
 

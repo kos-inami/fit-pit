@@ -97,6 +97,7 @@ const {
   const [copyDate,   setCopyDate]   = useState(TODAY_STR);
   const [logCounter, setLogCounter] = useState(0);
   const [recoveryAccordion, setRecoveryAccordion] = useState(false);
+  const [dayAiError, setDayAiError] = useState("");
 
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
@@ -270,8 +271,14 @@ const handleAI = async (id: string) => {
     setLogTarget(s);
   };
 
-  const [aiEnabled, setAiEnabled] = useState(false);
+  // AI -------------------------------------------------------------------
+  const [aiEnabled,          setAiEnabled]          = useState(false);
+  const [dayAiLoading,       setDayAiLoading]       = useState(false);
+  const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false);
+  const allHaveNotes = selectedDay.sessions.length > 0 &&
+  selectedDay.sessions.every(s => s.aiNote);
 
+  // load aiEnabled
   useEffect(() => {
     if (!userId) return;
     fetch(`/api/profile?userId=${userId}`)
@@ -279,6 +286,62 @@ const handleAI = async (id: string) => {
       .then(json => setAiEnabled(!!json.user?.geminiKey))
       .catch(() => {});
   }, [userId]);
+
+  const runDayAI = async () => {
+    if (!userId) return;
+    setDayAiLoading(true);
+    setShowRecoveryPrompt(false);
+    setDayAiError("");
+
+    try {
+      const res  = await fetch("/api/ai/suggest", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          userId,
+          recovery: selectedDay.recovery,
+          sessions: selectedDay.sessions.map((s, i) => ({
+            index:        i,
+            id:           s.id,
+            type:         s.type,
+            name:         s.name,
+            desc:         s.desc,
+            planSets:     s.planSets,
+            rounds:       s.rounds,
+            sets:         s.sets,
+            resultRounds: s.resultRounds,
+            result:       s.result,
+            notes:        s.notes,
+          })),
+        }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        setDayAiError(json.error ?? "AI request failed");
+        setDayAiLoading(false);
+        return;
+      }
+
+      if (json.suggestion?.perSession) {
+        selectedDay.sessions.forEach((s, i) => {
+          const note = json.suggestion.perSession[String(i)];
+          if (note) setAINote(selectedDate, s.id, note);
+        });
+      }
+    } catch {
+      setDayAiError("Could not reach AI. Check your connection.");
+    }
+    setDayAiLoading(false);
+  };
+
+  const handleDayAI = () => {
+    if (!selectedDay.recovery) {
+      setShowRecoveryPrompt(true);
+      return;
+    }
+    runDayAI();
+  };
 
   // ────────────────────────────────────────────────────────
   return (
@@ -474,6 +537,83 @@ const handleAI = async (id: string) => {
             </div>
           );
         })()}
+
+
+        {/* ── Daily AI Coaching ── */}
+        {aiEnabled && selectedDay.sessions.length > 0 && (
+          <div className="mb-[0.5rem]">
+            {showRecoveryPrompt ? (
+              <div className="rounded-[10px] p-[0.5rem]"
+                style={{ background: "#001a0d", border: "1px solid #003322" }}>
+                <div className="flex items-center gap-2 mb-[0.5rem]">
+                  <span className="w-[6px] h-[6px] rounded-full flex-shrink-0 mr-[0.5rem]"
+                    style={{ background: "var(--grn)" }} />
+                  <span className="text-[10px] tracking-[2px] uppercase"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}>
+                    AI Suggestion
+                  </span>
+                </div>
+                <p className="text-[12px] mb-[0.5rem] leading-relaxed" style={{ color: "#b8d4c8" }}>
+                  Log today&apos;s recovery first for more accurate coaching advice.
+                </p>
+                <div className="flex gap-[0.5rem]">
+                  <button
+                    onClick={runDayAI}
+                    className="flex-1 rounded-[8px] py-[9px] text-[12px] cursor-pointer"
+                    style={{
+                      fontFamily: "'DM Mono', monospace",
+                      background: "transparent",
+                      border:     "1px solid #003322",
+                      color:      "#b8d4c8",
+                    }}
+                  >
+                    Skip & Continue
+                  </button>
+                  <button
+                    onClick={() => { setRecoveryOpen(true); setShowRecoveryPrompt(false); }}
+                    className="flex-1 rounded-[8px] py-[9px] text-[12px] cursor-pointer"
+                    style={{
+                      fontFamily: "'DM Mono', monospace",
+                      background: "var(--grn)",
+                      border:     "none",
+                      color:      "#000",
+                    }}
+                  >
+                    Log Recovery
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleDayAI}
+                disabled={dayAiLoading}
+                className="w-full rounded-[9px] py-[11px] text-[14px] tracking-[1.5px] cursor-pointer"
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  background: dayAiLoading ? "var(--s2)" : "#001a0d",
+                  border:     `1px solid ${dayAiLoading ? "var(--br)" : "#003322"}`,
+                  color:      dayAiLoading ? "var(--mu)" : "var(--grn)",
+                }}
+              >
+                {dayAiLoading      ? "Getting AI Coaching..." :
+                  allHaveNotes      ? "↻ Refresh AI Coaching"  :
+                  "⚡ Get AI Coaching for Today"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {dayAiError && (
+          <div className="mt-2 px-3 py-2 rounded-[8px] text-[11px]"
+            style={{
+              fontFamily: "'DM Mono', monospace",
+              background: "#1a0000",
+              border:     "1px solid var(--red)",
+              color:      "var(--red)",
+            }}>
+            {dayAiError}
+          </div>
+        )}
 
         {/* empty state */}
         {selectedDay.sessions.length === 0 && (
@@ -828,24 +968,6 @@ const handleAI = async (id: string) => {
                 className="flex border-t"
                 style={{ borderColor: `${meta.color}22` }}
               >
-
-              {/* AI button — only if key configured */}
-              {aiEnabled && (
-                <button
-                  onClick={() => handleAI(s.id)}
-                  disabled={s.aiLoading}
-                  className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
-                  style={{
-                    fontFamily:  "'DM Mono', monospace",
-                    background:  "transparent",
-                    border:      "none",
-                    borderRight: `1px solid ${meta.color}22`,
-                    color:       s.aiLoading ? "var(--mu)" : "var(--grn)",
-                  }}
-                >
-                  {s.aiLoading ? "..." : s.aiNote ? "↻ AI" : "⚡ AI"}
-                </button>
-              )}
 
                 <button
                   onClick={() => setEditTarget(s)}
