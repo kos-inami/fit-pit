@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "@/lib/db";
 
-const SYSTEM_PROMPT = `You are an expert CrossFit and strength coach AI. Give highly specific, personalised coaching advice based on today's sessions and recovery data. 
+const SYSTEM_PROMPT = `You are an expert CrossFit and strength coach AI. Give highly specific, personalised coaching advice based on today's sessions and recovery data.
 
 Always include:
 - For strength/weightlifting: specific weight recommendations in kg
@@ -43,35 +43,48 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── fetch recent conversation history ─────────────────
+  // ── fetch recent conversation history ──────────────────
   const rawHistory = await db.aIMessage.findMany({
     where:   { userId },
-    orderBy: { createdAt: "desc" },
-    take:    6, // last 3 exchanges only
+    orderBy: { createdAt: "asc" },
+    take:    6,
   });
 
-  const history = rawHistory.reverse().map(m => ({
+  // trim content and ensure starts with user + alternates
+  const trimmed = rawHistory.map(m => ({
     ...m,
-    content: m.content.slice(0, 800), // cap each message
+    content: m.content.slice(0, 800),
   }));
 
-  // ── build today's context (compact) ───────────────────
+  // drop leading model messages
+  let startIdx = 0;
+  while (startIdx < trimmed.length && trimmed[startIdx].role !== "user") {
+    startIdx++;
+  }
+  const validHistory = trimmed.slice(startIdx);
+
+  const chatHistory = validHistory.map(m => ({
+    role:  m.role === "user" ? "user" as const : "model" as const,
+    parts: [{ text: m.content }],
+  }));
+
+  // ── build today's context ──────────────────────────────
   const recoveryText = recovery
     ? `Energy: ${recovery.energy}/5 | Sleep: ${recovery.sleepHours ?? "?"}h (quality ${recovery.sleepQuality ?? "?"}/5) | Sore: ${Array.isArray(recovery.sore) ? recovery.sore.join(", ") || "none" : "none"}${recovery.notes ? ` | Notes: ${recovery.notes}` : ""}`
     : "No recovery logged today";
 
   const sessionsText = sessions.map((s: {
-    index:        number;
-    id?:          string;
-    type:         string;
-    name:         string;
-    desc?:        string;
-    planSets?:    { setNumber: number; weight?: number | null; percentage?: number | null; reps?: number | null }[];
-    rounds?:      { roundNumber: number; details?: string; weight?: number | null; reps?: number | null; other?: string }[];
-    sets?:        { setNumber: number; weight?: number | null; reps?: number | null }[];
+    index:         number;
+    id?:           string;
+    type:          string;
+    name:          string;
+    desc?:         string;
+    planSets?:     { setNumber: number; weight?: number | null; percentage?: number | null; reps?: number | null }[];
+    rounds?:       { roundNumber: number; details?: string; weight?: number | null; reps?: number | null; other?: string }[];
+    sets?:         { setNumber: number; weight?: number | null; reps?: number | null }[];
     resultRounds?: { roundNumber: number; details?: string; weight?: number | null; reps?: number | null; other?: string }[];
-    result?:      string | null;
-    notes?:       string | null;
+    result?:       string | null;
+    notes?:        string | null;
   }, i: number) => {
     const parts: string[] = [`${i + 1}. ${s.name} (${s.type})`];
 
@@ -122,11 +135,6 @@ export async function POST(req: NextRequest) {
       model:             "gemini-2.0-flash-lite",
       systemInstruction: SYSTEM_PROMPT,
     });
-
-    const chatHistory = history.map(m => ({
-      role:  m.role === "user" ? "user" as const : "model" as const,
-      parts: [{ text: m.content }],
-    }));
 
     const chat   = model.startChat({ history: chatHistory });
     const result = await chat.sendMessage(newUserMessage);
