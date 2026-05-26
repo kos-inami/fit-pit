@@ -116,6 +116,7 @@ model MaxRecord {
   distance    Float?
   timeSeconds Int?
   notes       String?
+  isExpected  Boolean  @default(false)
   date        String
   createdAt   DateTime @default(now())
 }

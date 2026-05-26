@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
     userId, movement, category, details,
-    weight, reps, distance, timeSeconds, notes, date,
+    weight, reps, distance, timeSeconds,
+    notes, date, isExpected,
   } = body;
 
   if (!userId || !movement || !category) {
@@ -49,7 +50,8 @@ export async function POST(req: NextRequest) {
         distance:    distance    ?? null,
         timeSeconds: timeSeconds ?? null,
         notes:       notes       ?? "",
-        date:        date        ?? getTodayString(),
+        isExpected:  isExpected  ?? false,
+        date:        date        ?? new Date().toISOString().split("T")[0],
       },
     });
     return NextResponse.json({ record }, { status: 201 });

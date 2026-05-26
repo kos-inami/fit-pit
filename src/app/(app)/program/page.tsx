@@ -99,6 +99,17 @@ const {
   const [recoveryAccordion, setRecoveryAccordion] = useState(false);
   const [dayAiError, setDayAiError] = useState("");
 
+  const [expectedMaxTarget, setExpectedMaxTarget] = useState<{
+    sessionName: string;
+    min:         number;
+    max:         number;
+    label:       string;
+  } | null>(null);
+  const [existingWLRecords, setExistingWLRecords] = useState<{ movement: string; weight: number }[]>([]);
+  const [selectedRecord,    setSelectedRecord]    = useState("");
+  const [newMovementName,   setNewMovementName]   = useState("");
+  const [savingExpected,    setSavingExpected]    = useState(false);
+
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
@@ -271,6 +282,71 @@ const handleAI = async (id: string) => {
     setLogTarget(s);
   };
 
+  useEffect(() => {
+    if (!expectedMaxTarget || !userId) return;
+    fetch(`/api/records?userId=${userId}`)
+      .then(r => r.json())
+      .then(json => {
+        const wl = (json.records ?? [])
+          .filter((r: { category: string; weight?: number | null; isExpected?: boolean }) =>
+            r.category === "wl" && !r.isExpected && r.weight
+          );
+        const unique: Record<string, number> = {};
+        wl.forEach((r: { movement: string; weight: number }) => {
+          if (!unique[r.movement] || r.weight > unique[r.movement]) {
+            unique[r.movement] = r.weight;
+          }
+        });
+        setExistingWLRecords(Object.entries(unique).map(([movement, weight]) => ({ movement, weight })));
+        // pre-select if session name matches
+        const match = Object.keys(unique).find(m =>
+          m.toLowerCase() === expectedMaxTarget.sessionName.toLowerCase()
+        );
+        if (match) setSelectedRecord(match);
+        else setNewMovementName(expectedMaxTarget.sessionName);
+      })
+      .catch(() => {});
+  }, [expectedMaxTarget, userId]);
+
+  const handleSaveExpectedMax = async () => {
+    if (!expectedMaxTarget || !userId) return;
+    setSavingExpected(true);
+
+    // use exact name from existing record, uppercase only for new
+    const movement = selectedRecord
+      ? selectedRecord
+      : newMovementName.trim().toUpperCase();
+
+    if (!movement) {
+      setSavingExpected(false);
+      return;
+    }
+
+    const midpoint = Math.round(
+      (expectedMaxTarget.min + expectedMaxTarget.max) / 2 / 2.5
+    ) * 2.5;
+
+    await fetch("/api/records", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        userId,
+        movement,              // exact name — no toUpperCase
+        category:   "wl",
+        weight:     midpoint,
+        isExpected: true,
+        notes:      expectedMaxTarget.label,
+        date:       getTodayString(),
+      }),
+    });
+
+    setSavingExpected(false);
+    setExpectedMaxTarget(null);
+    setSelectedRecord("");
+    setNewMovementName("");
+    showFlash("Expected max saved");
+  };
+
   // AI -------------------------------------------------------------------
   const [aiEnabled,          setAiEnabled]          = useState(false);
   const [dayAiLoading,       setDayAiLoading]       = useState(false);
@@ -421,10 +497,9 @@ const handleAI = async (id: string) => {
               style={{ background: "var(--s1)", border: "1px solid #003322" }}>
 
               {/* accordion header */}
-              <button
+              <div
                 onClick={() => setRecoveryAccordion(o => !o)}
                 className="w-full flex items-center justify-between px-4 py-3 cursor-pointer"
-                style={{ background: "transparent", border: "none" }}
               >
                 <div className="flex items-center">
                   {/* <span className="text-[16px]">{e.emoji}</span> */}
@@ -450,7 +525,7 @@ const handleAI = async (id: string) => {
                     Edit
                   </button>
                 </div>
-              </button>
+              </div>
 
               {/* accordion content */}
               {recoveryAccordion && (
@@ -950,15 +1025,37 @@ const handleAI = async (id: string) => {
                 const expected = calculateExpectedMax(s.sets);
                 if (!expected) return null;
                 return (
-                  <div className="p-[0.5rem] flex items-center"
+                  <div className="p-[.5rem] mb-3 rounded-[8px] overflow-hidden"
                     style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
-                    <span className="text-[11px] mr-[0.5rem]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                      If you feel max out, expected max
-                    </span>
-                    <span className="text-[16px] tracking-[1px]"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
-                      {expected.min}–{expected.max} kg
-                    </span>
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] mr-[0.5rem]"
+                          style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                          Expected Max
+                        </span>
+                        <span className="text-[16px] tracking-[1px]"
+                          style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
+                          {expected.min}–{expected.max} kg
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setExpectedMaxTarget({
+                          sessionName: s.name,
+                          min:         expected.min,
+                          max:         expected.max,
+                          label:       `${expected.min}–${expected.max}`,
+                        })}
+                        className="text-[10px] px-[4px] py-[4px] rounded-full cursor-pointer"
+                        style={{
+                          fontFamily: "'DM Mono', monospace",
+                          background: "#1a0a2e",
+                          border:     "1px solid var(--acc)",
+                          color:      "var(--acc)",
+                        }}
+                      >
+                        Set as Expected Max
+                      </button>
+                    </div>
                   </div>
                 );
               })()}
@@ -1222,6 +1319,128 @@ const handleAI = async (id: string) => {
           </div>
         </div>
       )}
+
+      {/* ── Set Expected Max Sheet ── */}
+      {expectedMaxTarget && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center"
+          style={{ 
+            background: "rgba(0,0,0,0.6)",
+            width: "100%",
+            left: "0",
+            bottom: "0",
+          }}
+          onClick={() => setExpectedMaxTarget(null)}
+        >
+          <div
+            className="w-full max-w-[430px] rounded-t-[20px] p-[0.5rem]"
+            style={{ background: "var(--s1)", border: "1px solid var(--br)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* header */}
+            <div className="flex items-center justify-between mb-[.5rem]">
+              <div>
+                <div className="text-[20px] tracking-[1px]"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                  Set Expected Max
+                </div>
+                <div className="text-[12px] mt-[2px]"
+                  style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                  Saving{" "}
+                  <span style={{ color: "var(--acc)" }}>{expectedMaxTarget.label} kg</span>
+                  {" "}as expected max
+                </div>
+              </div>
+              <button
+                onClick={() => setExpectedMaxTarget(null)}
+                style={{ background: "none", border: "none", color: "var(--mu)", cursor: "pointer", fontSize: 20 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* select existing or create new */}
+            <div className="mb-4">
+              <div className="text-[10px] tracking-[1.5px] uppercase mb-[0.25rem]"
+                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                Link to Record
+              </div>
+
+              {existingWLRecords.length > 0 && (
+                <select
+                  value={selectedRecord}
+                  onChange={e => {
+                    setSelectedRecord(e.target.value);
+                    if (e.target.value) setNewMovementName("");
+                  }}
+                  className="w-full rounded-[8px] px-3 py-[10px] text-[13px] outline-none mb-[0.5rem]"
+                  style={{
+                    background: "var(--s2)",
+                    border:     "1px solid var(--br)",
+                    color:      selectedRecord ? "var(--tx)" : "var(--mu2)",
+                    cursor:     "pointer",
+                  }}
+                >
+                  <option value="">— Create new record —</option>
+                  {existingWLRecords.map(r => (
+                    <option key={r.movement} value={r.movement}>
+                      {r.movement} (Best: {r.weight}kg)
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {!selectedRecord && (
+                <div>
+                  <div className="text-[10px] tracking-[1.5px] uppercase mb-1"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    New Movement Name
+                  </div>
+                  <input
+                    value={newMovementName}
+                    onChange={e => setNewMovementName(e.target.value)}
+                    placeholder="e.g. BACK SQUAT"
+                    className="w-full rounded-[8px] px-3 py-[10px] text-[13px] outline-none"
+                    style={{
+                      background: "var(--s2)",
+                      border:     "1px solid var(--br)",
+                      color:      "var(--tx)",
+                      fontFamily: "'DM Mono', monospace",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleSaveExpectedMax}
+              disabled={savingExpected || (!selectedRecord && !newMovementName.trim())}
+              className="w-full rounded-[9px] py-[13px] text-[17px] tracking-[2px] cursor-pointer mb-3"
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                background: savingExpected ? "var(--s3)" : "#a78bfa",
+                border:     "none",
+                color:      "#000",
+              }}
+            >
+              {savingExpected ? "Saving..." : "Save Expected Max"}
+            </button>
+            <button
+              onClick={() => setExpectedMaxTarget(null)}
+              className="w-full rounded-[9px] py-[13px] text-[17px] tracking-[2px] cursor-pointer"
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                background: "transparent",
+                border:     "1px solid var(--br2)",
+                color:      "var(--mu2)",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }

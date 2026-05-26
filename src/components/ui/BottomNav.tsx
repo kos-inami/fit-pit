@@ -31,7 +31,7 @@ const STATIC_TABS = [
   },
   {
     href:       "/records",
-    label:      "Records",
+    label:      "Performance",
     programTab: false,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="20" height="20">

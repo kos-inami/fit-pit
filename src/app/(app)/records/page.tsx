@@ -13,16 +13,17 @@ import { getTodayString } from "@/lib/utils";
 type Category = "wl" | "workout" | "run";
 
 interface RecordEntry {
-  id:          string;
-  movement:    string;
-  category:    Category;
-  details?:    string | null;
-  weight?:     number | null;
-  reps?:       number | null;
-  distance?:   number | null;
+  id:           string;
+  movement:     string;
+  category:     Category;
+  details?:     string | null;
+  weight?:      number | null;
+  reps?:        number | null;
+  distance?:    number | null;
   timeSeconds?: number | null;
-  notes?:      string | null;
-  date:        string;
+  notes?:       string | null;
+  isExpected:   boolean;
+  date:         string;
 }
 
 // ─── constants ───────────────────────────────────────────────
@@ -54,7 +55,8 @@ function parseTime(str: string): number {
 }
 
 function getBestLabel(records: RecordEntry[], category: Category): string {
-  if (records.length === 0) return "";
+  const actual = records.filter(r => !r.isExpected);
+  if (actual.length === 0) return "";
   if (category === "wl") {
     const best = Math.max(...records.map(r => r.weight ?? 0));
     return `${best}kg`;
@@ -197,7 +199,7 @@ export default function RecordsPage() {
   // ─────────────────────────────────────────────────────────
   return (
     <>
-      <TopNav title="RECORDS" />
+      <TopNav title="PERFORMANCE" />
 
       <main className="px-[18px] pt-5 pb-28">
 
@@ -257,6 +259,25 @@ export default function RecordsPage() {
                   <div className="text-[18px] tracking-[1px] mb-[2px]"
                     style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                     {name}
+                    {/* inside the movement card head, after best/date display */}
+                    {(() => {
+                      const expected = entries.find(r => r.isExpected);
+                      if (!expected) return null;
+                      const display = expected.notes || (expected.weight ? `${expected.weight}kg` : null);
+                      if (!display) return null;
+                      return (
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px]"
+                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                            Expected Max
+                          </span>
+                          <span className="text-[13px] tracking-[0.5px]"
+                            style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#a78bfa" }}>
+                            {display} kg
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                   {entries.length > 0 ? (
                     <div className="flex items-center gap-2 flex-wrap">
@@ -388,6 +409,13 @@ export default function RecordsPage() {
                         weekday: "short", day: "numeric", month: "short", year: "numeric",
                       })}
                     </span>
+                    {r.isExpected && (
+                      <span className="text-[10px] px-2 py-[2px] rounded-full ml-2"
+                        style={{ background: "#1a0a2e", border: "1px solid #a78bfa", color: "#a78bfa", fontFamily: "'DM Mono', monospace" }}>
+                        estimated
+                      </span>
+                    )}
+
                   </div>
 
                   {/* WL */}

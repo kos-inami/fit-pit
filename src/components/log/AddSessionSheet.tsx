@@ -54,11 +54,18 @@ export default function AddSessionSheet({
   const [selectedMovement, setSelectedMovement] = useState<string>("");
   const [maxWeight,        setMaxWeight]        = useState<number | null>(null);
   const [showScanner,      setShowScanner]      = useState(false);
+  const [expectedRecords,  setExpectedRecords]  = useState<Record<string, { weight: number; label: string }>>({});
+  const [customMaxWeight,  setCustomMaxWeight]  = useState("");
 
   const meta    = SESSION_TYPE_META[type];
   const useSets = meta.useSets;
 
+  const effectiveMaxWeight = customMaxWeight
+  ? parseFloat(customMaxWeight)
+  : maxWeight;
+
   // ── load all records with weights when sheet opens ────────
+  // load all records with weights
   useEffect(() => {
     if (!userId || !open) return;
     let cancelled = false;
@@ -67,18 +74,38 @@ export default function AddSessionSheet({
       .then(r => r.json())
       .then(json => {
         if (cancelled) return;
-        const records: { movement: string; weight?: number | null }[] = json.records ?? [];
-        const map: Record<string, number> = {};
+        const records: {
+          movement: string;
+          weight?:  number | null;
+          isExpected?: boolean;
+          notes?:   string | null;
+        }[] = json.records ?? [];
+
+        // best actual weight per movement
+        const actualMap:   Record<string, number> = {};
+        // expected entry per movement
+        const expectedMap: Record<string, { weight: number; label: string }> = {};
+
         records.forEach(r => {
-          if (r.weight && r.weight > 0) {
-            if (!map[r.movement] || r.weight > map[r.movement]) {
-              map[r.movement] = r.weight;
+          if (!r.weight || r.weight <= 0) return;
+          if (r.isExpected) {
+            if (!expectedMap[r.movement] || r.weight > expectedMap[r.movement].weight) {
+              expectedMap[r.movement] = {
+                weight: r.weight,
+                label:  r.notes ?? `${r.weight}`,
+              };
+            }
+          } else {
+            if (!actualMap[r.movement] || r.weight > actualMap[r.movement]) {
+              actualMap[r.movement] = r.weight;
             }
           }
         });
+
         setAllRecords(
-          Object.entries(map).map(([movement, weight]) => ({ movement, weight }))
+          Object.entries(actualMap).map(([movement, weight]) => ({ movement, weight }))
         );
+        setExpectedRecords(expectedMap);
       })
       .catch(() => {});
 
@@ -88,7 +115,11 @@ export default function AddSessionSheet({
   // ── update maxWeight when selection changes ───────────────
   useEffect(() => {
     const found = allRecords.find(r => r.movement === selectedMovement);
-    const id    = setTimeout(() => setMaxWeight(found?.weight ?? null), 0);
+    const id    = setTimeout(() => {
+      const w = found?.weight ?? null;
+      setMaxWeight(w);
+      setCustomMaxWeight(w?.toString() ?? "");
+    }, 0);
     return () => clearTimeout(id);
   }, [selectedMovement, allRecords]);
 
@@ -100,6 +131,7 @@ export default function AddSessionSheet({
     setRounds([]);
     setSelectedMovement("");
     setMaxWeight(null);
+    setCustomMaxWeight("");
   };
 
   const handleSubmit = () => {
@@ -262,17 +294,71 @@ export default function AddSessionSheet({
                 </option>
               ))}
             </select>
-            {maxWeight && (
-              <div
-                className="mt-1 text-[11px]"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--acc)" }}
-              >
-                Max: {maxWeight}kg — % inputs will auto-calculate weight
+            
+            {selectedMovement && (
+              <div className="mt-[0.5rem] space-y-2">
+
+                {/* actual best */}
+                {maxWeight && (
+                  <div className="flex items-center justify-between p-[0.5rem] rounded-t-[8px]"
+                    style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
+                    <span className="text-[10px] tracking-[1px] uppercase"
+                      style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                      Best Actual
+                    </span>
+                    <span className="text-[15px] tracking-[1px]"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
+                      {maxWeight}kg
+                    </span>
+                  </div>
+                )}
+
+                {/* expected max */}
+                {expectedRecords[selectedMovement] && (
+                  <div className="flex items-center justify-between p-[0.5rem] rounded-b-[8px]"
+                    style={{ background: "var(--s2)", border: "1px solid #a78bfa44" }}>
+                    <span className="text-[10px] tracking-[1px] uppercase"
+                      style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                      Expected Max
+                    </span>
+                    <span className="text-[15px] tracking-[1px]"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#a78bfa" }}>
+                      {expectedRecords[selectedMovement].label} kg
+                    </span>
+                  </div>
+                )}
+
+                {/* manual reference override */}
+                <div>
+                  <label className="block text-[10px] tracking-[1.5px] uppercase mt-[0.5rem]"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    Reference Weight for % Calc
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder={maxWeight ? `${maxWeight}` : "Enter kg"}
+                    value={customMaxWeight}
+                    onChange={e => setCustomMaxWeight(e.target.value)}
+                    className="w-full rounded-[8px] p-[0.5rem] text-[13px] outline-none"
+                    style={{
+                      background: "var(--s2)",
+                      border:     "1px solid var(--acc)",
+                      color:      "var(--tx)",
+                      fontFamily: "'DM Mono', monospace",
+                    }}
+                  />
+                  <div className="text-[10px] mt-[0.5rem]"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    Edit to override — used for % calculations below
+                  </div>
+                </div>
+
               </div>
             )}
             {allRecords.length === 0 && (
               <div
-                className="mt-1 text-[11px]"
+                className="mt-[0.25rem] text-[11px]"
                 style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
               >
                 No max records yet — add them in Records tab
@@ -283,7 +369,7 @@ export default function AddSessionSheet({
           <SetLogger
             sets={planSets}
             onChange={setPlanSets}
-            maxWeight={maxWeight}
+            maxWeight={effectiveMaxWeight || null}
           />
         </div>
       )}

@@ -138,8 +138,8 @@ export default function SetLogger({
         {/* max weight reference */}
         {maxWeight && (
             <div
-            className="flex items-center gap-2 mb-3 px-3 py-2 rounded-[8px]"
-            style={{ background: "var(--s2)", border: "1px solid var(--br)" }}
+            className="flex items-center gap-2 mb-[0.5rem] p-[0.5rem] rounded-[8px]"
+            style={{ background: "var(--s2)" }}
             >
             <span
                 className="text-[9px] tracking-[1.5px] uppercase"
