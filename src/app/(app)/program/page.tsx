@@ -14,6 +14,8 @@ import { useProgram, ProgSession } from "@/contexts/ProgramContext";
 import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry, RecoveryLog } from "@/types";
 import { getLocalDateString, getTodayString, calculateExpectedMax } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
+import SearchSheet from "@/components/program/SearchSheet";
+
 
 
 // ─── helpers ─────────────────────────────────────────────────
@@ -109,6 +111,8 @@ const {
   const [selectedRecord,    setSelectedRecord]    = useState("");
   const [newMovementName,   setNewMovementName]   = useState("");
   const [savingExpected,    setSavingExpected]    = useState(false);
+
+  const [searchOpen, setSearchOpen] = useState(false);
 
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
@@ -425,18 +429,35 @@ const handleAI = async (id: string) => {
       <TopNav
         title="PROGRAM"
         right={
-          <button
-            onClick={() => setCalendarOpen(true)}
-            className="rounded-[8px] px-3 py-[6px] text-[11px] cursor-pointer"
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              background: "var(--s2)",
-              border:     "1px solid var(--br)",
-              color:      "var(--mu2)",
-            }}
-          >
-            📅 History
-          </button>
+          <div className="flex items-center gap-[6px]">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="rounded-[8px] px-[1rem] py-[6px] cursor-pointer"
+              style={{
+                background: "var(--s2)",
+                border:     "1px solid var(--br)",
+                color:      "var(--mu2)",
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                width="16" height="16">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setCalendarOpen(true)}
+              className="rounded-[8px] px-[1rem] py-[6px] text-[11px] cursor-pointer"
+              style={{
+                fontFamily: "'DM Mono', monospace",
+                background: "var(--s2)",
+                border:     "1px solid var(--br)",
+                color:      "var(--mu2)",
+              }}
+            >
+              📅 History
+            </button>
+          </div>
         }
       />
 
@@ -1440,6 +1461,11 @@ const handleAI = async (id: string) => {
           </div>
         </div>
       )}
+      
+      <SearchSheet
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+      />
 
     </>
   );

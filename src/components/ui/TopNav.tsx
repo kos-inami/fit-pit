@@ -1,9 +1,11 @@
 export default function TopNav({
   title,
   right,
+  left,
 }: {
   title?: string;
   right?: React.ReactNode;
+  left?: React.ReactNode;
 }) {
   return (
     <header
@@ -14,6 +16,7 @@ export default function TopNav({
         backdropFilter: "blur(14px)",
       }}
     >
+      {left && <div>{left}</div>}
       <span
         className="font-display text-[20px] tracking-[4px]"
         style={{ color: "var(--acc)", fontFamily: "'Bebas Neue', sans-serif" }}
