@@ -138,61 +138,103 @@ function resultSummary(s: SearchResult): string {
 
             {/* results */}
             {results.map(s => {
-            const meta    = SESSION_TYPE_META[s.type as SessionType];
-            const summary = resultSummary(s);
+                const meta    = SESSION_TYPE_META[s.type as SessionType];
+                const summary = resultSummary(s);
 
-            return (
-                <div
-                key={s.id}
-                onClick={() => handleSelect(s.day.date)}
-                className="rounded-[12px] mb-[8px] overflow-hidden cursor-pointer p-[0.5rem]"
-                style={{
-                    background: `linear-gradient(135deg, ${meta.color}0f 0%, var(--s1) 60%)`,
-                    border:     `1px solid ${meta.color}33`,
-                }}
-                >
-                <div className="p-[0.5rem]">
-                    {/* top row */}
-                    <div className="flex items-start justify-between gap-[6px]">
-                        <div className="flex items-center gap-[6px] min-w-0 flex-1">
-                            <span className="text-[18px] tracking-[0.5px] truncate"
+                return (
+                    <div
+                    key={s.id}
+                    onClick={() => handleSelect(s.day.date)}
+                    className="rounded-[12px] mb-[8px] overflow-hidden cursor-pointer p-[0.5rem]"
+                    style={{
+                        background: `linear-gradient(135deg, ${meta.color}0f 0%, var(--s1) 60%)`,
+                        border:     `1px solid ${meta.color}33`,
+                    }}
+                    >
+                    <div className="p-[0.5rem]">
+
+                        {/* top row */}
+                        <div className="flex items-start justify-between gap-[6px]">
+                        <div className="flex items-center gap-[6px] min-w-0 flex-1 flex-wrap">
+                            <span className="text-[18px] tracking-[0.5px]"
                             style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                             {s.name}
                             </span>
                             <TypeChip type={s.type as SessionType} />
                         </div>
-                    <span className="text-[10px] flex-shrink-0"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                        {formatDate(s.day.date)}
-                    </span>
-                    </div>
+                        <span className="text-[10px] flex-shrink-0"
+                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                            {formatDate(s.day.date)}
+                        </span>
+                        </div>
 
-                    {/* desc */}
-                    {s.desc && (
-                    <div className="text-[14px] mt-[0.5rem] truncate"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
-                        {s.desc}
-                    </div>
-                    )}
+                        {/* desc */}
+                        {s.desc && (
+                        <div className="text-[14px] mt-[0.5rem] whitespace-pre-line"
+                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+                            {s.desc}
+                        </div>
+                        )}
 
-                    {/* result */}
-                    {summary && (
-                    <div className="text-[14px] mt-[0.5rem]"
-                        style={{ fontFamily: "'DM Mono', monospace", color: meta.color }}>
-                        {summary}
-                    </div>
-                    )}
+                        {/* sets */}
+                        {s.sets.length > 0 && (
+                        <div className="mt-[0.5rem]">
+                            <div className="grid grid-cols-[24px_1fr_1fr] gap-2 mb-1 px-1">
+                            {["#","KG","REPS"].map(h => (
+                                <span key={h} className="text-[9px] tracking-[1px] text-center uppercase"
+                                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                                {h}
+                                </span>
+                            ))}
+                            </div>
+                            {s.sets.map(set => (
+                            <div key={set.setNumber} className="grid grid-cols-[24px_1fr_1fr] gap-2 mb-[3px]">
+                                <span className="text-[12px] text-center"
+                                style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
+                                {set.setNumber}
+                                </span>
+                                <span className="text-[12px] text-center"
+                                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+                                {set.weight ?? "—"}
+                                </span>
+                                <span className="text-[12px] text-center"
+                                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+                                {set.reps ?? "—"}
+                                </span>
+                            </div>
+                            ))}
+                        </div>
+                        )}
 
-                    {/* notes */}
-                    {s.notes && (
-                    <div className="text-[11px] italic mt-[0.5rem] truncate"
-                        style={{ color: "var(--mu)" }}>
-                        &ldquo;{s.notes}&rdquo;
+                        {/* result */}
+                        {summary && (
+                        <div className="text-[14px] mt-[0.5rem] whitespace-pre-line"
+                            style={{ fontFamily: "'DM Mono', monospace", color: meta.color }}>
+                            {summary}
+                        </div>
+                        )}
+
+                        {/* notes */}
+                        {s.notes && (
+                        <div className="text-[11px] italic mt-[0.5rem] whitespace-pre-line"
+                            style={{ color: "var(--mu)" }}>
+                            &ldquo;{s.notes}&rdquo;
+                        </div>
+                        )}
+
+                        {/* go to date */}
+                        <div className="text-[10px] tracking-[1px] mt-[0.5rem] pt-[0.5rem]"
+                        style={{
+                            fontFamily: "'DM Mono', monospace",
+                            color:      "var(--acc)",
+                            borderTop:  `1px solid ${meta.color}22`,
+                        }}>
+                        View in Program →
+                        </div>
+
                     </div>
-                    )}
-                </div>
-                </div>
-            );
+                    </div>
+                );
             })}
 
         </main>

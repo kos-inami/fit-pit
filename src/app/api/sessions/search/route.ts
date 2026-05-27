@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
         },
         include: {
             day:  { select: { date: true } },
-            sets: { orderBy: { setNumber: "asc" }, take: 3 },
+            sets: { orderBy: { setNumber: "asc" }},
         },
         orderBy: { day: { date: "desc" } },
         take: 50,
