@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import TopNav from "@/components/ui/TopNav";
 import WeekSelector from "@/components/program/WeekSelector";
@@ -99,15 +99,19 @@ function ProgramPage() {
   const [showRecoveryPrompt,  setShowRecoveryPrompt] = useState(false);
 
   // ── sync URL param changes while mounted ─────────────
+  const lastProcessedDateRef = useRef(initialDate);
+
   useEffect(() => {
     const dateParam = searchParams.get("date");
-    if (!dateParam || dateParam === selectedDate) return;
+    if (!dateParam) return;
+    if (dateParam === lastProcessedDateRef.current) return; // already processed
+    lastProcessedDateRef.current = dateParam;
     const id = setTimeout(() => {
       setSelectedDate(dateParam);
       setWeekOffset(getOffsetFromDate(dateParam));
     }, 0);
     return () => clearTimeout(id);
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const weekDates   = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const selectedDay = getDay(selectedDate);
