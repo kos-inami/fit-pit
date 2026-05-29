@@ -47,7 +47,11 @@ export default function HomePage() {
   const todayDay  = getDay(TODAY_STR);
   const sessions  = todayDay.sessions;
   const lastAI    = todayDay.aiSuggestion;
-  const dayComplete = todayDay.recovery !== null;
+
+  // ── session-based completion (not recovery) ───────────
+  const dayComplete = sessions.length > 0 && sessions.every(
+    s => isSessionComplete(s as Parameters<typeof isSessionComplete>[0])
+  );
 
   const weekDayData: WeekDayData[] = weekDates.map((date, i) => {
     const d           = getDay(date);
@@ -60,10 +64,10 @@ export default function HomePage() {
     );
 
     let state: WeekDayState = "empty";
-    if (isToday)                        state = "today";
-    else if (isPast && allDone)         state = "done";
-    else if (isPast && hasSessions)     state = "incomplete";
-    else if (isFuture && hasSessions)   state = "upcoming";
+    if      (isToday)                      state = "today";
+    else if (isPast  && allDone)           state = "done";
+    else if (isPast  && hasSessions)       state = "incomplete";
+    else if (isFuture && hasSessions)      state = "upcoming";
 
     return { label: DAY_LETTERS[i], state, date };
   });
@@ -91,6 +95,11 @@ export default function HomePage() {
     saveRecovery(TODAY_STR, data);
     setRecoveryOpen(false);
   };
+
+  // suppress unused var warnings
+  void totalSessions;
+  void completed;
+  void recentDays;
 
   return (
     <>
@@ -164,7 +173,7 @@ export default function HomePage() {
                     </span>
                   ) : (
                     <span className="text-[12px] flex-shrink-0 ml-2"
-                      style={{ fontFamily: "'DM Mono', monospace", color: "#ff9055", }}>
+                      style={{ fontFamily: "'DM Mono', monospace", color: "#ff9055" }}>
                       Pending
                     </span>
                   )}
