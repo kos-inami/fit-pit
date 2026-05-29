@@ -46,14 +46,14 @@ export async function POST(req: NextRequest) {
   // ── fetch recent conversation history ──────────────────
   const rawHistory = await db.aIMessage.findMany({
     where:   { userId },
-    orderBy: { createdAt: "asc" },
-    take:    6,
+    orderBy: { createdAt: "desc" },
+    take:    4,
   });
 
   // trim content and ensure starts with user + alternates
   const trimmed = rawHistory.map(m => ({
     ...m,
-    content: m.content.slice(0, 800),
+    content: m.content.slice(0, 500),
   }));
 
   // drop leading model messages
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
   try {
     const genAI = new GoogleGenerativeAI(user.geminiKey.trim());
     const model = genAI.getGenerativeModel({
-      model:             "gemini-2.0-flash-lite",
+      model:             "gemini-2.5-flash-lite",
       systemInstruction: SYSTEM_PROMPT,
     });
 
@@ -177,11 +177,17 @@ export async function POST(req: NextRequest) {
       );
     }
     if (msg.includes("quota") || msg.includes("429")) {
-      return NextResponse.json(
-        { error: "Rate limit exceeded. Try again in a minute." },
-        { status: 429 }
-      );
-    }
+    // check if it's daily quota or per-minute limit
+    const isDaily = msg.includes("PerDay") || msg.includes("limit: 0");
+    return NextResponse.json(
+      {
+        error: isDaily
+          ? "Daily quota exceeded. Resets 24h after first use today."
+          : "Rate limit — try again in a minute.",
+      },
+      { status: 429 }
+    );
+  }
     return NextResponse.json({ error: `AI request failed: ${msg}` }, { status: 500 });
   }
 }

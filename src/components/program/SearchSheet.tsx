@@ -85,7 +85,7 @@ export default function SearchSheet({ open, onClose }: SearchSheetProps) {
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && handleSubmit()}
-                    className="w-full rounded-[8px] p-[11px] text-[14px] outline-none"
+                    className="w-full rounded-[8px] ptest-[11px] text-[14px] outline-none"
                     style={{
                     background: "var(--s2)",
                     border:     "1px solid var(--br)",
