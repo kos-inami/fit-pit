@@ -31,12 +31,13 @@ function isSessionComplete(s: {
   sets: unknown[]; rounds: unknown[];
   resultRounds: unknown[]; result: string | null; type: string;
 }) {
+  // check result text first — same as isDone in program page
+  if (s.result !== null && (s.result as string).trim() !== "") return true;
   const meta = SESSION_TYPE_META[s.type as keyof typeof SESSION_TYPE_META];
-  if (meta.useSets) return s.sets.length > 0;
+  if (meta.useSets) return (s.sets as unknown[]).length > 0;
   if (s.type === "wod" || s.type === "zone") return (s.resultRounds as unknown[]).length > 0;
-  return s.result !== null;
+  return false;
 }
-
 export default function HomePage() {
   const router = useRouter();
   const { getDay, days, saveRecovery } = useProgram();

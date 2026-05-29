@@ -85,6 +85,7 @@ export default function WeekStrip({ days, onDayClick }: WeekStripProps) {
                     background:   dot(d.state),
                 }} />
                 )}
+                {d.state}
             </button>
             );
         })}
