@@ -258,25 +258,24 @@ const handleAI = async (id: string) => {
 
   const searchParams = useSearchParams();
 
+  // ── initialise from URL param ─────────────────────────
+  const initialDate = searchParams.get("date") ?? TODAY_STR;
+
+  function getInitialOffset(dateStr: string): number {
+    const target = new Date(dateStr + "T00:00:00");
+    const today  = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.floor(
+      Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) / 7
+    );
+  }
+
   useEffect(() => {
     const dateParam = searchParams.get("date");
+    if (!dateParam || dateParam === selectedDate) return;
     const id = setTimeout(() => {
-      if (dateParam) {
-        setSelectedDate(dateParam);
-
-        // both dates at local midnight to avoid timezone offset
-        const target = new Date(dateParam + "T00:00:00");
-        const today  = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const diffDays = Math.round(
-          (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        setWeekOffset(Math.floor(diffDays / 7));
-      } else {
-        setSelectedDate(TODAY_STR);
-        setWeekOffset(0);
-      }
+      setSelectedDate(dateParam);
+      setWeekOffset(getInitialOffset(dateParam));
     }, 0);
     return () => clearTimeout(id);
   }, [searchParams]);
