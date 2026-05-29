@@ -16,8 +16,6 @@ import { getLocalDateString, getTodayString, calculateExpectedMax } from "@/lib/
 import { useSearchParams } from "next/navigation";
 import SearchSheet from "@/components/program/SearchSheet";
 
-
-
 // ─── helpers ─────────────────────────────────────────────────
 const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
@@ -35,6 +33,15 @@ function getWeekDates(offset: number): string[] {
   });
 }
 
+function getOffsetFromDate(dateStr: string): number {
+  const target = new Date(dateStr + "T00:00:00");
+  const today  = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.floor(
+    Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) / 7
+  );
+}
+
 function isDone(s: ProgSession): boolean {
   if (s.result !== null && s.result.trim() !== "") return true;
   const meta = SESSION_TYPE_META[s.type];
@@ -43,63 +50,38 @@ function isDone(s: ProgSession): boolean {
   return false;
 }
 
-async function fetchAI(
-  name:    string,
-  type:    string,
-  desc:    string,
-  userId?: string
-): Promise<string> {
-  try {
-    const res  = await fetch("/api/ai/suggest", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        sessions: [{ index: 0, type, name, desc }],
-        userId:   userId ?? null,
-      }),
-    });
-    const json = await res.json();
-
-    if (!res.ok) {
-      return json.error ?? "AI request failed.";
-    }
-
-    return (
-      json.suggestion?.perSession?.["0"] ??
-      json.suggestion?.summary ??
-      `Focus on quality for ${name}.`
-    );
-  } catch {
-    return "Could not reach AI. Check your connection.";
-  }
-}
-
 // ────────────────────────────────────────────────────────────
 function ProgramPage() {
-  const { data: authSession }  = useSession();
-  const userId                 = authSession?.user?.id;
+  const { data: authSession } = useSession();
+  const userId                = authSession?.user?.id;
+  const searchParams          = useSearchParams();
 
-const {
-  days, getDay,
-  addSession, editSession, removeSession,
-  saveResult, clearResult, setAINote, clearAINote, setAILoading,
-  saveRecovery, deleteRecovery,
-} = useProgram();
+  const {
+    days, getDay,
+    addSession, editSession, removeSession,
+    saveResult, clearResult, setAINote, clearAINote, setAILoading,
+    saveRecovery, deleteRecovery,
+  } = useProgram();
 
-  const [weekOffset,   setWeekOffset]   = useState(0);
-  const [selectedDate, setSelectedDate] = useState(TODAY_STR);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [addOpen,      setAddOpen]      = useState(false);
-  const [editTarget,   setEditTarget]   = useState<ProgSession | null>(null);
-  const [logTarget,    setLogTarget]    = useState<ProgSession | null>(null);
-  const [recoveryOpen, setRecoveryOpen] = useState(false);
-  const [confirmId,    setConfirmId]    = useState<string | null>(null);
-  const [flash,        setFlash]        = useState<string | null>(null);
-  const [copyTarget, setCopyTarget] = useState<ProgSession | null>(null);
-  const [copyDate,   setCopyDate]   = useState(TODAY_STR);
-  const [logCounter, setLogCounter] = useState(0);
+  // ── initialise from URL param ─────────────────────────
+  const initialDate   = searchParams.get("date") ?? TODAY_STR;
+  const initialOffset = getOffsetFromDate(initialDate);
+
+  const [weekOffset,    setWeekOffset]    = useState(initialOffset);
+  const [selectedDate,  setSelectedDate]  = useState(initialDate);
+  const [calendarOpen,  setCalendarOpen]  = useState(false);
+  const [addOpen,       setAddOpen]       = useState(false);
+  const [editTarget,    setEditTarget]    = useState<ProgSession | null>(null);
+  const [logTarget,     setLogTarget]     = useState<ProgSession | null>(null);
+  const [recoveryOpen,  setRecoveryOpen]  = useState(false);
+  const [confirmId,     setConfirmId]     = useState<string | null>(null);
+  const [flash,         setFlash]         = useState<string | null>(null);
+  const [copyTarget,    setCopyTarget]    = useState<ProgSession | null>(null);
+  const [copyDate,      setCopyDate]      = useState(TODAY_STR);
+  const [logCounter,    setLogCounter]    = useState(0);
   const [recoveryAccordion, setRecoveryAccordion] = useState(false);
-  const [dayAiError, setDayAiError] = useState("");
+  const [dayAiError,    setDayAiError]    = useState("");
+  const [searchOpen,    setSearchOpen]    = useState(false);
 
   const [expectedMaxTarget, setExpectedMaxTarget] = useState<{
     sessionName: string;
@@ -112,10 +94,23 @@ const {
   const [newMovementName,   setNewMovementName]   = useState("");
   const [savingExpected,    setSavingExpected]    = useState(false);
 
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [aiEnabled,           setAiEnabled]          = useState(false);
+  const [dayAiLoading,        setDayAiLoading]       = useState(false);
+  const [showRecoveryPrompt,  setShowRecoveryPrompt] = useState(false);
 
+  // ── sync URL param changes while mounted ─────────────
+  useEffect(() => {
+    const dateParam = searchParams.get("date");
+    if (!dateParam || dateParam === selectedDate) return;
+    const id = setTimeout(() => {
+      setSelectedDate(dateParam);
+      setWeekOffset(getOffsetFromDate(dateParam));
+    }, 0);
+    return () => clearTimeout(id);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const weekDates   = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const selectedDay = getDay(selectedDate);
 
   const weekDayData = weekDates.map((date, i) => ({
     date,
@@ -126,26 +121,57 @@ const {
     sessionCount: getDay(date).sessions.length,
   }));
 
-  const selectedDay       = getDay(selectedDate);
   const datesWithSessions = Object.keys(days).filter(d => days[d].sessions.length > 0);
-
-  const selectedLabel = new Date(selectedDate + "T00:00:00").toLocaleDateString("en-AU", {
-    weekday: "long", day: "numeric", month: "long",
-  });
+  const allHaveNotes      = selectedDay.sessions.length > 0 &&
+    selectedDay.sessions.every(s => s.aiNote);
 
   const showFlash = (msg: string) => {
     setFlash(msg);
     setTimeout(() => setFlash(null), 1800);
   };
 
-  // ── handlers ─────────────────────────────────────────────
+  // ── load AI enabled ───────────────────────────────────
+  useEffect(() => {
+    if (!userId) return;
+    fetch(`/api/profile?userId=${userId}`)
+      .then(r => r.json())
+      .then(json => setAiEnabled(!!json.user?.geminiKey))
+      .catch(() => {});
+  }, [userId]);
+
+  // ── load WL records for expected max sheet ────────────
+  useEffect(() => {
+    if (!expectedMaxTarget || !userId) return;
+    fetch(`/api/records?userId=${userId}`)
+      .then(r => r.json())
+      .then(json => {
+        const wl = (json.records ?? []).filter((r: {
+          category: string; weight?: number | null; isExpected?: boolean;
+        }) => r.category === "wl" && !r.isExpected && r.weight);
+
+        const unique: Record<string, number> = {};
+        wl.forEach((r: { movement: string; weight: number }) => {
+          if (!unique[r.movement] || r.weight > unique[r.movement]) {
+            unique[r.movement] = r.weight;
+          }
+        });
+        setExistingWLRecords(Object.entries(unique).map(([movement, weight]) => ({ movement, weight })));
+        const match = Object.keys(unique).find(m =>
+          m.toLowerCase() === expectedMaxTarget.sessionName.toLowerCase()
+        );
+        if (match) setSelectedRecord(match);
+        else setNewMovementName(expectedMaxTarget.sessionName);
+      })
+      .catch(() => {});
+  }, [expectedMaxTarget, userId]);
+
+  // ── handlers ─────────────────────────────────────────
   const handleAdd = (data: {
     type: SessionType; name: string; desc: string;
     planSets: SetLog[]; rounds: RoundEntry[];
   }) => {
     addSession(selectedDate, {
-      ...data,
-      sets: [], result: null, notes: null, resultRounds: [],
+      ...data, sets: [], result: null, notes: null, resultRounds: [],
     });
     showFlash("Session added");
   };
@@ -155,10 +181,8 @@ const {
     planSets: SetLog[]; rounds: RoundEntry[];
   }) => {
     editSession(selectedDate, id, {
-      name:     data.name,
-      desc:     data.desc,
-      planSets: data.planSets,
-      rounds:   data.rounds,
+      name: data.name, desc: data.desc,
+      planSets: data.planSets, rounds: data.rounds,
     });
     setEditTarget(null);
     showFlash("Session updated");
@@ -179,46 +203,6 @@ const {
     showFlash("Result saved");
   };
 
-const handleAI = async (id: string) => {
-  const s = selectedDay.sessions.find(x => x.id === id);
-    if (!s) return;
-    setAILoading(selectedDate, id, true);
-
-    try {
-      const res  = await fetch("/api/ai/suggest", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          sessions: [{
-            index:    0,
-            id:       s.id,
-            type:     s.type,
-            name:     s.name,
-            desc:     s.desc,
-            planSets: s.planSets,
-            rounds:   s.rounds,
-          }],
-          userId,
-        }),
-      });
-      const json = await res.json();
-
-      if (!res.ok) {
-        setAINote(selectedDate, id, json.error ?? "AI request failed.");
-        return;
-      }
-
-      const note =
-        json.suggestion?.perSession?.["0"] ??
-        json.suggestion?.summary ??
-        `Focus on quality for ${s.name}.`;
-
-      setAINote(selectedDate, id, note);
-    } catch {
-      setAINote(selectedDate, id, "Could not reach AI. Check your connection.");
-    }
-  };
-
   const handleRecovery = (data: RecoveryLog) => {
     saveRecovery(selectedDate, data);
     setRecoveryOpen(false);
@@ -232,146 +216,31 @@ const handleAI = async (id: string) => {
   };
 
   const handleCalendarSelect = (date: string) => {
-    const diffDays = Math.floor(
-      (new Date(date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-    );
-    setWeekOffset(Math.floor(diffDays / 7));
+    setWeekOffset(getOffsetFromDate(date));
     setSelectedDate(date);
   };
 
   const handleCopy = () => {
     if (!copyTarget) return;
     addSession(copyDate, {
-      type:         copyTarget.type,
-      name:         copyTarget.name,
-      desc:         copyTarget.desc,
-      planSets:     copyTarget.planSets,
-      rounds:       copyTarget.rounds,
-      sets:         [],
-      result:       null,
-      notes:        null,
-      resultRounds: [],
+      type: copyTarget.type, name: copyTarget.name, desc: copyTarget.desc,
+      planSets: copyTarget.planSets, rounds: copyTarget.rounds,
+      sets: [], result: null, notes: null, resultRounds: [],
     });
     setCopyTarget(null);
     showFlash(`Copied to ${copyDate}`);
   };
-
-  const searchParams = useSearchParams();
-
-  // ── initialise from URL param ─────────────────────────
-  const initialDate = searchParams.get("date") ?? TODAY_STR;
-
-  function getInitialOffset(dateStr: string): number {
-    const target = new Date(dateStr + "T00:00:00");
-    const today  = new Date();
-    today.setHours(0, 0, 0, 0);
-    return Math.floor(
-      Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) / 7
-    );
-  }
-
-  useEffect(() => {
-    const dateParam = searchParams.get("date");
-    if (!dateParam || dateParam === selectedDate) return;
-    const id = setTimeout(() => {
-      setSelectedDate(dateParam);
-      setWeekOffset(getInitialOffset(dateParam));
-    }, 0);
-    return () => clearTimeout(id);
-  }, [searchParams]);
 
   const openLogSheet = (s: ProgSession) => {
     setLogCounter(c => c + 1);
     setLogTarget(s);
   };
 
-  useEffect(() => {
-    if (!expectedMaxTarget || !userId) return;
-    fetch(`/api/records?userId=${userId}`)
-      .then(r => r.json())
-      .then(json => {
-        const wl = (json.records ?? [])
-          .filter((r: { category: string; weight?: number | null; isExpected?: boolean }) =>
-            r.category === "wl" && !r.isExpected && r.weight
-          );
-        const unique: Record<string, number> = {};
-        wl.forEach((r: { movement: string; weight: number }) => {
-          if (!unique[r.movement] || r.weight > unique[r.movement]) {
-            unique[r.movement] = r.weight;
-          }
-        });
-        setExistingWLRecords(Object.entries(unique).map(([movement, weight]) => ({ movement, weight })));
-        // pre-select if session name matches
-        const match = Object.keys(unique).find(m =>
-          m.toLowerCase() === expectedMaxTarget.sessionName.toLowerCase()
-        );
-        if (match) setSelectedRecord(match);
-        else setNewMovementName(expectedMaxTarget.sessionName);
-      })
-      .catch(() => {});
-  }, [expectedMaxTarget, userId]);
-
-  const handleSaveExpectedMax = async () => {
-    if (!expectedMaxTarget || !userId) return;
-    setSavingExpected(true);
-
-    // use exact name from existing record, uppercase only for new
-    const movement = selectedRecord
-      ? selectedRecord
-      : newMovementName.trim().toUpperCase();
-
-    if (!movement) {
-      setSavingExpected(false);
-      return;
-    }
-
-    const midpoint = Math.round(
-      (expectedMaxTarget.min + expectedMaxTarget.max) / 2 / 2.5
-    ) * 2.5;
-
-    await fetch("/api/records", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        userId,
-        movement,              // exact name — no toUpperCase
-        category:   "wl",
-        weight:     midpoint,
-        isExpected: true,
-        notes:      expectedMaxTarget.label,
-        date:       getTodayString(),
-      }),
-    });
-
-    setSavingExpected(false);
-    setExpectedMaxTarget(null);
-    setSelectedRecord("");
-    setNewMovementName("");
-    showFlash("Expected max saved");
-  };
-
-  // AI -------------------------------------------------------------------
-  const [aiEnabled,          setAiEnabled]          = useState(false);
-  const [dayAiLoading,       setDayAiLoading]       = useState(false);
-  const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false);
-  const allHaveNotes = selectedDay.sessions.length > 0 &&
-  selectedDay.sessions.every(s => s.aiNote);
-
-  // load aiEnabled
-  useEffect(() => {
-    if (!userId) return;
-    fetch(`/api/profile?userId=${userId}`)
-      .then(r => r.json())
-      .then(json => setAiEnabled(!!json.user?.geminiKey))
-      .catch(() => {});
-  }, [userId]);
-
   const runDayAI = async () => {
     if (!userId) return;
     setDayAiLoading(true);
     setShowRecoveryPrompt(false);
     setDayAiError("");
-
     try {
       const res  = await fetch("/api/ai/suggest", {
         method:  "POST",
@@ -380,28 +249,18 @@ const handleAI = async (id: string) => {
           userId,
           recovery: selectedDay.recovery,
           sessions: selectedDay.sessions.map((s, i) => ({
-            index:        i,
-            id:           s.id,
-            type:         s.type,
-            name:         s.name,
-            desc:         s.desc,
-            planSets:     s.planSets,
-            rounds:       s.rounds,
-            sets:         s.sets,
-            resultRounds: s.resultRounds,
-            result:       s.result,
-            notes:        s.notes,
+            index: i, id: s.id, type: s.type, name: s.name, desc: s.desc,
+            planSets: s.planSets, rounds: s.rounds, sets: s.sets,
+            resultRounds: s.resultRounds, result: s.result, notes: s.notes,
           })),
         }),
       });
       const json = await res.json();
-
       if (!res.ok) {
         setDayAiError(json.error ?? "AI request failed");
         setDayAiLoading(false);
         return;
       }
-
       if (json.suggestion?.perSession) {
         selectedDay.sessions.forEach((s, i) => {
           const note = json.suggestion.perSession[String(i)];
@@ -415,14 +274,33 @@ const handleAI = async (id: string) => {
   };
 
   const handleDayAI = () => {
-    if (!selectedDay.recovery) {
-      setShowRecoveryPrompt(true);
-      return;
-    }
+    if (!selectedDay.recovery) { setShowRecoveryPrompt(true); return; }
     runDayAI();
   };
 
-  // ────────────────────────────────────────────────────────
+  const handleSaveExpectedMax = async () => {
+    if (!expectedMaxTarget || !userId) return;
+    setSavingExpected(true);
+    const movement = selectedRecord ? selectedRecord : newMovementName.trim().toUpperCase();
+    if (!movement) { setSavingExpected(false); return; }
+    const midpoint = Math.round((expectedMaxTarget.min + expectedMaxTarget.max) / 2 / 2.5) * 2.5;
+    await fetch("/api/records", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        userId, movement, category: "wl",
+        weight: midpoint, isExpected: true,
+        notes: expectedMaxTarget.label, date: getTodayString(),
+      }),
+    });
+    setSavingExpected(false);
+    setExpectedMaxTarget(null);
+    setSelectedRecord("");
+    setNewMovementName("");
+    showFlash("Expected max saved");
+  };
+
+  // ── render ────────────────────────────────────────────
   return (
     <>
       <TopNav
@@ -432,14 +310,9 @@ const handleAI = async (id: string) => {
             <button
               onClick={() => setSearchOpen(true)}
               className="rounded-[8px] px-[1rem] py-[6px] cursor-pointer"
-              style={{
-                background: "var(--s2)",
-                border:     "1px solid var(--br)",
-                color:      "var(--mu2)",
-              }}
+              style={{ background: "var(--s2)", border: "1px solid var(--br)", color: "var(--mu2)" }}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                width="16" height="16">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
@@ -447,12 +320,7 @@ const handleAI = async (id: string) => {
             <button
               onClick={() => setCalendarOpen(true)}
               className="rounded-[8px] px-[1rem] py-[6px] text-[11px] cursor-pointer"
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                background: "var(--s2)",
-                border:     "1px solid var(--br)",
-                color:      "var(--mu2)",
-              }}
+              style={{ fontFamily: "'DM Mono', monospace", background: "var(--s2)", border: "1px solid var(--br)", color: "var(--mu2)" }}
             >
               📅 History
             </button>
@@ -462,7 +330,6 @@ const handleAI = async (id: string) => {
 
       <main className="px-[18px] pt-5 pb-28">
 
-        {/* week selector */}
         <WeekSelector
           days={weekDayData}
           selected={selectedDate}
@@ -477,12 +344,7 @@ const handleAI = async (id: string) => {
           <button
             onClick={() => setAddOpen(true)}
             className="flex-1 rounded-[9px] py-[11px] text-[14px] tracking-[1.5px] cursor-pointer"
-            style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              background: "var(--acc)",
-              border:     "none",
-              color:      "#000",
-            }}
+            style={{ fontFamily: "'Bebas Neue', sans-serif", background: "var(--acc)", border: "none", color: "#000" }}
           >
             + Add Session
           </button>
@@ -509,69 +371,45 @@ const handleAI = async (id: string) => {
             { value: 2, color: "#ff9055", emoji: "😐", label: "Low"       },
             { value: 1, color: "#ff4c2b", emoji: "😴", label: "Exhausted" },
           ].find(x => x.value === selectedDay.recovery!.energy)!;
-
           const rec = selectedDay.recovery!;
-
           return (
             <div className="rounded-[10px] mb-[0.5rem] p-[0.5rem] overflow-hidden"
               style={{ background: "var(--s1)", border: "1px solid #003322" }}>
-
-              {/* accordion header */}
               <div
                 onClick={() => setRecoveryAccordion(o => !o)}
                 className="w-full flex items-center justify-between px-4 py-3 cursor-pointer"
               >
                 <div className="flex items-center">
-                  {/* <span className="text-[16px]">{e.emoji}</span> */}
                   <span className="text-[10px] tracking-[1px] uppercase"
                     style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}>
                     Recovery Summary
                   </span>
-                  {/* <span className="text-[11px] font-medium" style={{ color: e.color }}>
-                    · {e.label}
-                  </span> */}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={e => { e.stopPropagation(); setRecoveryOpen(true); }}
+                    onClick={ev => { ev.stopPropagation(); setRecoveryOpen(true); }}
                     className="text-[10px] cursor-pointer px-2 py-[3px] rounded-full"
-                    style={{
-                      fontFamily: "'DM Mono', monospace",
-                      background: "transparent",
-                      border:     "none",
-                      color:      "var(--mu2)",
-                    }}
+                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", color: "var(--mu2)" }}
                   >
                     Edit
                   </button>
                 </div>
               </div>
-
-              {/* accordion content */}
               {recoveryAccordion && (
-                <div className="px-4 pb-4 pt-1"
-                  style={{ borderTop: "1px solid var(--br)" }}>
-
-                  {/* energy */}
+                <div className="px-4 pb-4 pt-1" style={{ borderTop: "1px solid var(--br)" }}>
                   <div className="flex items-center justify-between py-[0.5rem]"
                     style={{ borderBottom: "1px solid var(--br)" }}>
                     <span className="text-[10px] tracking-[1.5px] uppercase"
-                      style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                      Energy
-                    </span>
+                      style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>Energy</span>
                     <span className="text-[10px] font-medium" style={{ color: e.color }}>
                       {e.emoji} - {e.value} — {e.label}
                     </span>
                   </div>
-
-                  {/* sleep */}
                   {(rec.sleepHours || rec.sleepQuality) && (
                     <div className="flex items-center justify-between py-[0.5rem]"
                       style={{ borderBottom: "1px solid var(--br)" }}>
                       <span className="text-[10px] tracking-[1.5px] uppercase"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                        Sleep
-                      </span>
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>Sleep</span>
                       <span className="text-[10px]"
                         style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
                         {rec.sleepHours ? `${rec.sleepHours}h` : ""}
@@ -580,18 +418,14 @@ const handleAI = async (id: string) => {
                       </span>
                     </div>
                   )}
-
-                  {/* sore areas */}
                   {rec.sore.length > 0 && (
-                    <div className="py-[0.5rem]" style={{ borderBottom: rec.soreOther || rec.notes ? "1px solid var(--br)" : "none" }}>
+                    <div className="py-[0.5rem]"
+                      style={{ borderBottom: rec.soreOther || rec.notes ? "1px solid var(--br)" : "none" }}>
                       <span className="text-[10px] tracking-[1.5px] uppercase block mb-[0.5rem]"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                        Sore Areas
-                      </span>
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>Sore Areas</span>
                       <div className="flex flex-wrap gap-[5px]">
                         {rec.sore.map(area => (
-                          <span key={area}
-                            className="text-[10px] px-[0.5rem] py-[3px] rounded-full"
+                          <span key={area} className="text-[10px] px-[0.5rem] py-[3px] rounded-full"
                             style={{ fontFamily: "'DM Mono', monospace", background: "#1a0000", border: "1px solid var(--red)", color: "var(--red)" }}>
                             {area}
                           </span>
@@ -599,29 +433,18 @@ const handleAI = async (id: string) => {
                       </div>
                     </div>
                   )}
-
-                  {/* sore other */}
                   {rec.soreOther && (
                     <div className="py-[0.5rem]"
                       style={{ borderBottom: rec.notes ? "1px solid var(--br)" : "none" }}>
                       <div className="text-[10px] tracking-[1.5px] uppercase mb-[0.25rem]"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                        Other
-                      </div>
-                      <div className="text-[12px]"
-                        style={{ color: "var(--mu2)" }}>
-                        {rec.soreOther}
-                      </div>
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>Other</div>
+                      <div className="text-[12px]" style={{ color: "var(--mu2)" }}>{rec.soreOther}</div>
                     </div>
                   )}
-
-                  {/* notes */}
                   {rec.notes && (
                     <div className="pt-[0.5rem]">
                       <span className="text-[10px] tracking-[1.5px] uppercase block mb-[0.25rem]"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                        Notes
-                      </span>
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>Notes</span>
                       <p className="text-[12px] italic" style={{ color: "var(--mu2)" }}>
                         &ldquo;{rec.notes}&rdquo;
                       </p>
@@ -633,8 +456,7 @@ const handleAI = async (id: string) => {
           );
         })()}
 
-
-        {/* ── Daily AI Coaching ── */}
+        {/* daily AI */}
         {aiEnabled && selectedDay.sessions.length > 0 && (
           <div className="mb-[0.5rem]">
             {showRecoveryPrompt ? (
@@ -652,130 +474,86 @@ const handleAI = async (id: string) => {
                   Log today&apos;s recovery first for more accurate coaching advice.
                 </p>
                 <div className="flex gap-[0.5rem]">
-                  <button
-                    onClick={runDayAI}
+                  <button onClick={runDayAI}
                     className="flex-1 rounded-[8px] py-[9px] text-[12px] cursor-pointer"
-                    style={{
-                      fontFamily: "'DM Mono', monospace",
-                      background: "transparent",
-                      border:     "1px solid #003322",
-                      color:      "#b8d4c8",
-                    }}
-                  >
+                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid #003322", color: "#b8d4c8" }}>
                     Skip & Continue
                   </button>
-                  <button
-                    onClick={() => { setRecoveryOpen(true); setShowRecoveryPrompt(false); }}
+                  <button onClick={() => { setRecoveryOpen(true); setShowRecoveryPrompt(false); }}
                     className="flex-1 rounded-[8px] py-[9px] text-[12px] cursor-pointer"
-                    style={{
-                      fontFamily: "'DM Mono', monospace",
-                      background: "var(--grn)",
-                      border:     "none",
-                      color:      "#000",
-                    }}
-                  >
+                    style={{ fontFamily: "'DM Mono', monospace", background: "var(--grn)", border: "none", color: "#000" }}>
                     Log Recovery
                   </button>
                 </div>
               </div>
             ) : (
-              <button
-                onClick={handleDayAI}
-                disabled={dayAiLoading}
+              <button onClick={handleDayAI} disabled={dayAiLoading}
                 className="w-full rounded-[9px] py-[11px] text-[14px] tracking-[1.5px] cursor-pointer"
                 style={{
                   fontFamily: "'Bebas Neue', sans-serif",
                   background: dayAiLoading ? "var(--s2)" : "#001a0d",
                   border:     `1px solid ${dayAiLoading ? "var(--br)" : "#003322"}`,
                   color:      dayAiLoading ? "var(--mu)" : "var(--grn)",
-                }}
-              >
-                {dayAiLoading      ? "Getting AI Coaching..." :
-                  allHaveNotes      ? "↻ Refresh AI Coaching"  :
-                  "⚡ Get AI Coaching for Today"}
+                }}>
+                {dayAiLoading ? "Getting AI Coaching..." : allHaveNotes ? "↻ Refresh AI Coaching" : "⚡ Get AI Coaching for Today"}
               </button>
             )}
           </div>
         )}
 
         {dayAiError && (
-          <div className="mt-2 px-3 py-2 rounded-[8px] text-[11px]"
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              background: "#1a0000",
-              border:     "1px solid var(--red)",
-              color:      "var(--red)",
-            }}>
+          <div className="mt-2 px-3 py-2 rounded-[8px] text-[11px] mb-[0.5rem]"
+            style={{ fontFamily: "'DM Mono', monospace", background: "#1a0000", border: "1px solid var(--red)", color: "var(--red)" }}>
             {dayAiError}
           </div>
         )}
 
         {/* empty state */}
         {selectedDay.sessions.length === 0 && (
-          <div
-            className="rounded-[12px] py-[1.5rem] text-center"
-            style={{ background: "var(--s1)", border: "1px dashed var(--br2)" }}
-          >
+          <div className="rounded-[12px] py-[1.5rem] text-center"
+            style={{ background: "var(--s1)", border: "1px dashed var(--br2)" }}>
             <div className="text-[24px] mb-2">📋</div>
-            <div className="text-[13px] mb-1" style={{ color: "var(--mu2)" }}>
-              No sessions planned
-            </div>
-            <div
-              className="text-[11px]"
-              style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-            >
+            <div className="text-[13px] mb-1" style={{ color: "var(--mu2)" }}>No sessions planned</div>
+            <div className="text-[11px]"
+              style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
               Tap + Add Session above
             </div>
           </div>
         )}
 
-        {/* ── session cards ── */}
+        {/* session cards */}
         {selectedDay.sessions.map((s) => {
-          const meta    = SESSION_TYPE_META[s.type];
-          const done    = isDone(s);
+          const meta      = SESSION_TYPE_META[s.type];
+          const done      = isDone(s);
           const hasResult = done;
 
           return (
-            <div
-              key={s.id}
-              className="rounded-[11px] mb-[10px] overflow-hidden"
+            <div key={s.id} className="rounded-[11px] mb-[10px] overflow-hidden"
               style={{
                 background: `linear-gradient(135deg, ${meta.color}0f 0%, var(--s1) 60%)`,
                 border:     `1px solid ${meta.color}44`,
-              }}
-            >
+              }}>
+
               {/* head */}
               <div className="flex items-start justify-between px-4 pt-3 pb-2">
                 <div className="flex-1 min-w-0 pr-2">
                   <div className="flex items-center gap-2 flex-wrap mb-[0.5rem]">
-                    <span
-                      className="text-[20px] tracking-[1px] mx-[.5rem] my-[.5rem]"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif" }}
-                    >
+                    <span className="text-[20px] tracking-[1px] mx-[.5rem] my-[.5rem]"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                       {s.name}
                     </span>
                     <TypeChip type={s.type} />
                   </div>
                   {s.desc && (
-                    <div
-                      className="text-[14px] mx-[.5rem] mb-[.5rem] leading-relaxed mt-1 whitespace-pre-line"
-                      style={{ 
-                        fontFamily: "'DM Mono', monospace",
-                      }}
-                    >
+                    <div className="text-[14px] mx-[.5rem] mb-[.5rem] leading-relaxed mt-1 whitespace-pre-line"
+                      style={{ fontFamily: "'DM Mono', monospace" }}>
                       {s.desc}
                     </div>
                   )}
                 </div>
                 {done && (
-                  <span
-                    className="text-[12px] mx-[.5rem] my-[.5rem] flex-shrink-0"
-                    style={{
-                      fontFamily: "'DM Mono', monospace",
-                      color:      "var(--grn)",
-                      background: "#001a0d",
-                    }}
-                  >
+                  <span className="text-[12px] mx-[.5rem] my-[.5rem] flex-shrink-0"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)", background: "#001a0d" }}>
                     ✓ Done
                   </span>
                 )}
@@ -794,45 +572,29 @@ const handleAI = async (id: string) => {
                         Coach Note
                       </span>
                     </div>
-                    <button
-                      onClick={() => clearAINote(selectedDate, s.id)}
+                    <button onClick={() => clearAINote(selectedDate, s.id)}
                       className="text-[11px] cursor-pointer"
-                      style={{
-                        background: "none",
-                        border:     "none",
-                        color:      "var(--mu)",
-                        fontFamily: "'DM Mono', monospace",
-                      }}
-                    >
+                      style={{ background: "none", border: "none", color: "var(--mu)", fontFamily: "'DM Mono', monospace" }}>
                       ✕
                     </button>
                   </div>
-                  <p className="text-[12px] leading-relaxed" style={{ color: "#b8d4c8" }}>
-                    {s.aiNote}
-                  </p>
+                  <p className="text-[12px] leading-relaxed" style={{ color: "#b8d4c8" }}>{s.aiNote}</p>
                 </div>
               )}
 
-              {/* ── PLAN: sets (Strength/WL/Accessory) ── */}
+              {/* plan sets */}
               {meta.useSets && s.planSets.length > 0 && (
                 <div className="mx-4 mb-3">
                   <div className="text-[9px] tracking-[1.5px] uppercase mb-1"
                     style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
                     Planned Sets
                   </div>
-
-                  {/* headers */}
                   <div className="grid grid-cols-[22px_1fr_1fr_1fr_1fr] gap-2 mb-1 px-1">
-                    {["#", "KG", "%", "REPS", "NOTES"].map(h => (
-                      <span key={h}
-                        className="text-[9px] tracking-[1px] uppercase text-center"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                        {h}
-                      </span>
+                    {["#","KG","%","REPS","NOTES"].map(h => (
+                      <span key={h} className="text-[9px] tracking-[1px] uppercase text-center"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>{h}</span>
                     ))}
                   </div>
-
-                  {/* rows */}
                   {s.planSets.map(set => (
                     <div key={set.setNumber} className="grid grid-cols-[22px_1fr_1fr_1fr_1fr] gap-2 mb-1">
                       <span className="text-[12px] text-center"
@@ -863,56 +625,41 @@ const handleAI = async (id: string) => {
                 </div>
               )}
 
-              {/* ── PLAN: rounds (WOD/Zone) ── */}
+              {/* plan rounds */}
               {(s.type === "wod" || s.type === "zone") && s.rounds.length > 0 && (
                 <div className="mx-4 mb-3 p-[0.5rem]">
-                  <div
-                    className="text-[12px] tracking-[1.5px] uppercase mb-[0.25rem]"
-                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-                  >
+                  <div className="text-[12px] tracking-[1.5px] uppercase mb-[0.25rem]"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
                     Workout Plan
                   </div>
                   {s.rounds.map(r => (
-                    <div
-                      key={r.roundNumber}
-                      className="rounded-[8px] p-[0.5rem] mb-[0.5rem]"
-                      style={{ background: "var(--s2)", border: "1px solid var(--br)" }}
-                    >
-                      <div
-                        className="text-[14px] tracking-[1px] mb-[2px]"
-                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: `${meta.color}` }}
-                      >
+                    <div key={r.roundNumber} className="rounded-[8px] p-[0.5rem] mb-[0.5rem]"
+                      style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
+                      <div className="text-[14px] tracking-[1px] mb-[2px]"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: meta.color }}>
                         Round {r.roundNumber}
                       </div>
                       {r.details && (
-                        <div
-                          className="text-[12px] whitespace-pre-line"
-                          style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-                        >
+                        <div className="text-[12px] whitespace-pre-line"
+                          style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
                           {r.details}
                         </div>
                       )}
                       <div className="flex gap-3 flex-wrap mt-1">
                         {r.weight !== null && (
-                          <span
-                            className="text-[10px]"
-                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-                          >
+                          <span className="text-[10px]"
+                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
                             {r.weight}kg
                           </span>
                         )}
                         {r.reps !== null && (
-                          <span
-                            className="text-[10px]"
-                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-                          >
+                          <span className="text-[10px]"
+                            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
                             {r.reps} reps
                           </span>
                         )}
                         {r.other && (
-                          <span className="text-[12px]" style={{ color: "var(--mu)" }}>
-                            {r.other}
-                          </span>
+                          <span className="text-[12px]" style={{ color: "var(--mu)" }}>{r.other}</span>
                         )}
                       </div>
                     </div>
@@ -920,60 +667,46 @@ const handleAI = async (id: string) => {
                 </div>
               )}
 
-              {/* ── RESULT divider ── */}
+              {/* result divider */}
               {hasResult && (
                 <div className="mx-4 mb-2 flex items-center gap-2 pb-[0.5rem]">
                   <div className="h-[1px] flex-1" style={{ background: "var(--br)" }} />
-                  <span
-                    className="text-[12px] tracking-[1.5px] uppercase"
-                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}
-                  >
+                  <span className="text-[12px] tracking-[1.5px] uppercase"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}>
                     Result
                   </span>
                   <div className="h-[1px] flex-1" style={{ background: "var(--br)" }} />
                 </div>
               )}
 
-
-              {/* ── RESULT: comment (all types) ── */}
+              {/* result comment */}
               {s.result && (
                 <div className="p-[0.5rem] mb-[0.5rem]">
                   <p className="text-[13px] whitespace-pre-line" style={{ color: meta.color }}>{s.result}</p>
                 </div>
               )}
 
-              {/* ── RESULT: sets (Strength/WL/Accessory) ── */}
+              {/* result sets */}
               {meta.useSets && s.sets.length > 0 && (
                 <div className="mx-4 mb-3 p-[0.5rem]">
                   <div className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 mb-1 px-1">
                     {["#","WEIGHT","REPS","NOTE"].map(h => (
-                      <span
-                        key={h}
-                        className="text-[12px] tracking-[1px] uppercase text-center"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}
-                      >
-                        {h}
-                      </span>
+                      <span key={h} className="text-[12px] tracking-[1px] uppercase text-center"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>{h}</span>
                     ))}
                   </div>
                   {s.sets.map(set => (
                     <div key={set.setNumber} className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 mb-1">
-                      <span
-                        className="text-[12px] text-center"
-                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}
-                      >
+                      <span className="text-[12px] text-center"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
                         {set.setNumber}
                       </span>
-                      <span
-                        className="text-[12px] text-center"
-                        style={{ fontFamily: "'DM Mono', monospace" }}
-                      >
+                      <span className="text-[12px] text-center"
+                        style={{ fontFamily: "'DM Mono', monospace" }}>
                         {set.weight ?? "—"}
                       </span>
-                      <span
-                        className="text-[12px] text-center"
-                        style={{ fontFamily: "'DM Mono', monospace" }}
-                      >
+                      <span className="text-[12px] text-center"
+                        style={{ fontFamily: "'DM Mono', monospace" }}>
                         {set.reps ?? "—"}
                       </span>
                       <span className="text-[12px]" style={{ color: "var(--mu2)" }}>
@@ -984,46 +717,33 @@ const handleAI = async (id: string) => {
                 </div>
               )}
 
-              {/* ── RESULT: result rounds (WOD/Zone) ── */}
+              {/* result rounds */}
               {(s.type === "wod" || s.type === "zone") && s.resultRounds.length > 0 && (
                 <div className="mx-4 mb-3 space-y-[5px] p-[0.25rem]">
                   {s.resultRounds.map(r => (
-                    <div
-                      key={r.roundNumber}
-                      className="rounded-[7px] p-[0.5rem] mb-[0.5rem]"
-                      style={{ background: "var(--s2)", border: "1px solid var(--br)" }}
-                    >
-                      <div
-                        className="text-[14px] tracking-[1px] mb-[0.25rem]"
-                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}
-                      >
+                    <div key={r.roundNumber} className="rounded-[7px] p-[0.5rem] mb-[0.5rem]"
+                      style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
+                      <div className="text-[14px] tracking-[1px] mb-[0.25rem]"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
                         Round {r.roundNumber}
                       </div>
                       {r.details && (
-                        <div
-                          className="text-[12px] whitespace-pre-line mb-[0.25rem]"
-                          style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}
-                        >
+                        <div className="text-[12px] whitespace-pre-line mb-[0.25rem]"
+                          style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
                           {r.details}
                         </div>
                       )}
                       <div className="flex gap-3 flex-wrap">
                         {r.weight !== null && (
                           <span className="text-[12px]"
-                            style={{ fontFamily: "'DM Mono', monospace" }}>
-                            {r.weight}kg
-                          </span>
+                            style={{ fontFamily: "'DM Mono', monospace" }}>{r.weight}kg</span>
                         )}
                         {r.reps !== null && (
                           <span className="text-[12px]"
-                            style={{ fontFamily: "'DM Mono', monospace" }}>
-                            {r.reps} reps
-                          </span>
+                            style={{ fontFamily: "'DM Mono', monospace" }}>{r.reps} reps</span>
                         )}
                         {r.other && (
-                          <span className="text-[12px]" style={{ color: "var(--mu2)" }}>
-                            {r.other}
-                          </span>
+                          <span className="text-[12px]" style={{ color: "var(--mu2)" }}>{r.other}</span>
                         )}
                       </div>
                     </div>
@@ -1040,7 +760,7 @@ const handleAI = async (id: string) => {
                 </div>
               )}
 
-              {/* ── Expected Max ── */}
+              {/* expected max */}
               {meta.useSets && s.sets.length > 0 && (() => {
                 const expected = calculateExpectedMax(s.sets);
                 if (!expected) return null;
@@ -1061,17 +781,11 @@ const handleAI = async (id: string) => {
                       <button
                         onClick={() => setExpectedMaxTarget({
                           sessionName: s.name,
-                          min:         expected.min,
-                          max:         expected.max,
-                          label:       `${expected.min}–${expected.max}`,
+                          min: expected.min, max: expected.max,
+                          label: `${expected.min}–${expected.max}`,
                         })}
                         className="text-[10px] px-[4px] py-[4px] rounded-full cursor-pointer"
-                        style={{
-                          fontFamily: "'DM Mono', monospace",
-                          background: "#1a0a2e",
-                          border:     "1px solid var(--acc)",
-                          color:      "var(--acc)",
-                        }}
+                        style={{ fontFamily: "'DM Mono', monospace", background: "#1a0a2e", border: "1px solid var(--acc)", color: "var(--acc)" }}
                       >
                         Set as Expected Max
                       </button>
@@ -1080,51 +794,21 @@ const handleAI = async (id: string) => {
                 );
               })()}
 
-              {/* ── action row ── */}
-              <div
-                className="flex border-t"
-                style={{ borderColor: `${meta.color}22` }}
-              >
-
-                <button
-                  onClick={() => setEditTarget(s)}
+              {/* action row */}
+              <div className="flex border-t" style={{ borderColor: `${meta.color}22` }}>
+                <button onClick={() => setEditTarget(s)}
                   className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
-                  style={{
-                    fontFamily:  "'DM Mono', monospace",
-                    background:  "transparent",
-                    border:      "none",
-                    borderRight: `1px solid ${meta.color}22`,
-                    color:       "var(--mu2)",
-                  }}
-                >
+                  style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: "var(--mu2)" }}>
                   Edit Plan
                 </button>
-
-                <button
-                  onClick={() => openLogSheet(s)}
+                <button onClick={() => openLogSheet(s)}
                   className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
-                  style={{
-                    fontFamily:  "'DM Mono', monospace",
-                    background:  "transparent",
-                    border:      "none",
-                    borderRight: `1px solid ${meta.color}22`,
-                    color:       done ? "var(--grn)" : meta.color,
-                  }}
-                >
+                  style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: done ? "var(--grn)" : meta.color }}>
                   {done ? "Edit Result" : "Log Result"}
                 </button>
-
-                <button
-                  onClick={() => { setCopyTarget(s); setCopyDate(TODAY_STR); }}
+                <button onClick={() => { setCopyTarget(s); setCopyDate(TODAY_STR); }}
                   className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
-                  style={{
-                    fontFamily:  "'DM Mono', monospace",
-                    background:  "transparent",
-                    border:      "none",
-                    borderRight: `1px solid ${meta.color}22`,
-                    color:       "var(--mu2)",
-                  }}
-                >
+                  style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: "var(--mu2)" }}>
                   Copy
                 </button>
               </div>
@@ -1134,12 +818,8 @@ const handleAI = async (id: string) => {
 
       </main>
 
-      {/* ── sheets ── */}
-      <AddSessionSheet
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onAdd={handleAdd}
-      />
+      {/* sheets */}
+      <AddSessionSheet open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAdd} />
 
       <AddSessionSheet
         key={editTarget?.id ?? "edit-closed"}
@@ -1147,18 +827,11 @@ const handleAI = async (id: string) => {
         onClose={() => setEditTarget(null)}
         onAdd={handleAdd}
         editSession={editTarget ? {
-          id:       editTarget.id,
-          type:     editTarget.type,
-          name:     editTarget.name,
-          desc:     editTarget.desc,
-          planSets: editTarget.planSets,
-          rounds:   editTarget.rounds,
+          id: editTarget.id, type: editTarget.type, name: editTarget.name,
+          desc: editTarget.desc, planSets: editTarget.planSets, rounds: editTarget.rounds,
         } : null}
         onEdit={handleEdit}
-        onDelete={() => {
-          setEditTarget(null);
-          setConfirmId(editTarget!.id);
-        }}
+        onDelete={() => { setEditTarget(null); setConfirmId(editTarget!.id); }}
       />
 
       <LogResultSheet
@@ -1173,18 +846,10 @@ const handleAI = async (id: string) => {
           setLogTarget(null);
           showFlash("Result deleted");
         } : undefined}
-        initialSets={
-          logTarget?.sets.length
-            ? logTarget.sets
-            : logTarget?.planSets ?? []
-        }
-        initialResultRounds={
-          logTarget?.resultRounds.length
-            ? logTarget.resultRounds
-            : logTarget?.rounds ?? []
-        }
+        initialSets={logTarget?.sets.length ? logTarget.sets : logTarget?.planSets ?? []}
+        initialResultRounds={logTarget?.resultRounds.length ? logTarget.resultRounds : logTarget?.rounds ?? []}
         initialResult={logTarget?.result ?? ""}
-        initialNotes={logTarget?.notes  ?? ""}
+        initialNotes={logTarget?.notes ?? ""}
       />
 
       <RecoverySheet
@@ -1212,24 +877,11 @@ const handleAI = async (id: string) => {
       {/* flash */}
       {flash && (
         <div className="absolute left-1/2 -translate-x-1/2 w-full z-[100] flex justify-center pt-5 px-4 pointer-events-none"
-            style={{
-                top: "0",
-                padding: "2.5rem 0",
-                background: "rgba(8,8,8,0.5)",
-                backdropFilter: "blur(6px)",
-            }}>
-          <div
-            className="px-6 py-3 rounded-[12px]"
-            style={{
-              background: "rgba(8,8,8,0.95)",
-              boxShadow:  "0 4px 24px rgba(0,0,0,0.5)",
-              animation:  "slideDown .25s cubic-bezier(.16,1,.3,1)",
-            }}
-          >
-            <div
-              className="text-[22px] tracking-[3px]"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}
-            >
+          style={{ top: "0", padding: "2.5rem 0", background: "rgba(8,8,8,0.5)", backdropFilter: "blur(6px)" }}>
+          <div className="px-6 py-3 rounded-[12px]"
+            style={{ background: "rgba(8,8,8,0.95)", boxShadow: "0 4px 24px rgba(0,0,0,0.5)", animation: "slideDown .25s cubic-bezier(.16,1,.3,1)" }}>
+            <div className="text-[22px] tracking-[3px]"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
               {flash}
             </div>
           </div>
@@ -1237,235 +889,118 @@ const handleAI = async (id: string) => {
       )}
 
       <style>{`
-        @keyframes pulse {
-          0%,100% { opacity:1; transform:scale(1); }
-          50%      { opacity:.4; transform:scale(.7); }
-        }
-        @keyframes slideDown {
-          from { opacity:0; transform:translateY(-12px); }
-          to   { opacity:1; transform:translateY(0); }
-        }
+        @keyframes pulse   { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.7); } }
+        @keyframes slideDown { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:translateY(0); } }
       `}</style>
 
-      {/* ── Copy Session Sheet ── */}
+      {/* copy sheet */}
       {copyTarget && (
-        <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bottom-[0] left-[0] w-full"
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bottom-[0] left-[0] w-full"
           style={{ background: "rgba(0,0,0,0.6)" }}
-          onClick={() => setCopyTarget(null)}
-        >
-          <div
-            className="w-full max-w-[430px] rounded-t-[20px] p-[1rem] pb-[2rem]"
+          onClick={() => setCopyTarget(null)}>
+          <div className="w-full max-w-[430px] rounded-t-[20px] p-[1rem] pb-[2rem]"
             style={{ background: "var(--s1)", border: "1px solid var(--br)" }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* header */}
+            onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-[1rem]">
               <div>
                 <div className="text-[20px] tracking-[1px]"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                  Copy Session
-                </div>
+                  style={{ fontFamily: "'Bebas Neue', sans-serif" }}>Copy Session</div>
                 <div className="text-[11px] mt-[2px]"
-                  style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                  {copyTarget.name}
-                </div>
+                  style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>{copyTarget.name}</div>
               </div>
-              <button
-                onClick={() => setCopyTarget(null)}
-                style={{ background: "none", border: "none", color: "var(--mu)", cursor: "pointer", fontSize: 20 }}
-              >
-                ×
-              </button>
+              <button onClick={() => setCopyTarget(null)}
+                style={{ background: "none", border: "none", color: "var(--mu)", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
-
-            {/* date picker */}
             <div className="mb-[1rem]">
               <div className="text-[10px] tracking-[1.5px] uppercase mb-[0.25rem]"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                Copy to Date
-              </div>
-              <input
-                type="date"
-                value={copyDate}
-                onChange={e => setCopyDate(e.target.value)}
+                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>Copy to Date</div>
+              <input type="date" value={copyDate} onChange={e => setCopyDate(e.target.value)}
                 className="w-full rounded-[8px] px-[10px] py-[10px] text-[14px] outline-none"
-                style={{
-                  background: "var(--s2)",
-                  border:     "1px solid var(--br)",
-                  color:      "var(--tx)",
-                  fontFamily: "'DM Sans', sans-serif",
-                }}
-              />
+                style={{ background: "var(--s2)", border: "1px solid var(--br)", color: "var(--tx)", fontFamily: "'DM Sans', sans-serif" }} />
             </div>
-
-            {/* quick date buttons */}
             <div className="flex gap-2 mb-[1rem]">
               {[
                 { label: "Today",     date: TODAY_STR },
                 { label: "Tomorrow",  date: (() => { const d = new Date(); d.setDate(d.getDate() + 1); return getLocalDateString(d); })() },
                 { label: "Next Week", date: (() => { const d = new Date(); d.setDate(d.getDate() + 7); return getLocalDateString(d); })() },
               ].map(opt => (
-                <button
-                  key={opt.label}
-                  onClick={() => setCopyDate(opt.date)}
+                <button key={opt.label} onClick={() => setCopyDate(opt.date)}
                   className="flex-1 rounded-[8px] py-[8px] text-[11px] cursor-pointer transition-colors"
-                  style={{
-                    fontFamily: "'DM Mono', monospace",
-                    background: copyDate === opt.date ? "var(--acc)" : "var(--s2)",
-                    border:     `1px solid ${copyDate === opt.date ? "var(--acc)" : "var(--br)"}`,
-                    color:      copyDate === opt.date ? "#000" : "var(--mu2)",
-                  }}
-                >
+                  style={{ fontFamily: "'DM Mono', monospace", background: copyDate === opt.date ? "var(--acc)" : "var(--s2)", border: `1px solid ${copyDate === opt.date ? "var(--acc)" : "var(--br)"}`, color: copyDate === opt.date ? "#000" : "var(--mu2)" }}>
                   {opt.label}
                 </button>
               ))}
             </div>
-
-            {/* confirm */}
-            <button
-              onClick={handleCopy}
-              disabled={!copyDate || copyDate === selectedDate}
+            <button onClick={handleCopy} disabled={!copyDate || copyDate === selectedDate}
               className="w-full rounded-[9px] py-[13px] text-[17px] tracking-[2px] cursor-pointer"
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                background: (!copyDate || copyDate === selectedDate) ? "var(--s3)" : "var(--acc)",
-                border:     "none",
-                color:      (!copyDate || copyDate === selectedDate) ? "var(--mu)" : "#000",
-              }}
-            >
+              style={{ fontFamily: "'Bebas Neue', sans-serif", background: (!copyDate || copyDate === selectedDate) ? "var(--s3)" : "var(--acc)", border: "none", color: (!copyDate || copyDate === selectedDate) ? "var(--mu)" : "#000" }}>
               {copyDate === selectedDate ? "Same Date — Pick Another" : "Copy Session"}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Set Expected Max Sheet ── */}
+      {/* expected max sheet */}
       {expectedMaxTarget && (
-        <div
-          className="fixed inset-0 z-[80] flex items-end justify-center"
-          style={{ 
-            background: "rgba(0,0,0,0.6)",
-            width: "100%",
-            left: "0",
-            bottom: "0",
-          }}
-          onClick={() => setExpectedMaxTarget(null)}
-        >
-          <div
-            className="w-full max-w-[430px] rounded-t-[20px] p-[0.5rem]"
+        <div className="fixed inset-0 z-[80] flex items-end justify-center"
+          style={{ background: "rgba(0,0,0,0.6)", width: "100%", left: "0", bottom: "0" }}
+          onClick={() => setExpectedMaxTarget(null)}>
+          <div className="w-full max-w-[430px] rounded-t-[20px] p-[0.5rem]"
             style={{ background: "var(--s1)", border: "1px solid var(--br)" }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* header */}
+            onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-[.5rem]">
               <div>
                 <div className="text-[20px] tracking-[1px]"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                  Set Expected Max
-                </div>
+                  style={{ fontFamily: "'Bebas Neue', sans-serif" }}>Set Expected Max</div>
                 <div className="text-[12px] mt-[2px]"
                   style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                  Saving{" "}
-                  <span style={{ color: "var(--acc)" }}>{expectedMaxTarget.label} kg</span>
-                  {" "}as expected max
+                  Saving <span style={{ color: "var(--acc)" }}>{expectedMaxTarget.label} kg</span> as expected max
                 </div>
               </div>
-              <button
-                onClick={() => setExpectedMaxTarget(null)}
-                style={{ background: "none", border: "none", color: "var(--mu)", cursor: "pointer", fontSize: 20 }}
-              >
-                ×
-              </button>
+              <button onClick={() => setExpectedMaxTarget(null)}
+                style={{ background: "none", border: "none", color: "var(--mu)", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
-
-            {/* select existing or create new */}
             <div className="mb-4">
               <div className="text-[10px] tracking-[1.5px] uppercase mb-[0.25rem]"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                Link to Record
-              </div>
-
+                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>Link to Record</div>
               {existingWLRecords.length > 0 && (
-                <select
-                  value={selectedRecord}
-                  onChange={e => {
-                    setSelectedRecord(e.target.value);
-                    if (e.target.value) setNewMovementName("");
-                  }}
+                <select value={selectedRecord}
+                  onChange={e => { setSelectedRecord(e.target.value); if (e.target.value) setNewMovementName(""); }}
                   className="w-full rounded-[8px] px-3 py-[10px] text-[13px] outline-none mb-[0.5rem]"
-                  style={{
-                    background: "var(--s2)",
-                    border:     "1px solid var(--br)",
-                    color:      selectedRecord ? "var(--tx)" : "var(--mu2)",
-                    cursor:     "pointer",
-                  }}
-                >
+                  style={{ background: "var(--s2)", border: "1px solid var(--br)", color: selectedRecord ? "var(--tx)" : "var(--mu2)", cursor: "pointer" }}>
                   <option value="">— Create new record —</option>
                   {existingWLRecords.map(r => (
-                    <option key={r.movement} value={r.movement}>
-                      {r.movement} (Best: {r.weight}kg)
-                    </option>
+                    <option key={r.movement} value={r.movement}>{r.movement} (Best: {r.weight}kg)</option>
                   ))}
                 </select>
               )}
-
               {!selectedRecord && (
                 <div>
                   <div className="text-[10px] tracking-[1.5px] uppercase mb-1"
-                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                    New Movement Name
-                  </div>
-                  <input
-                    value={newMovementName}
-                    onChange={e => setNewMovementName(e.target.value)}
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>New Movement Name</div>
+                  <input value={newMovementName} onChange={e => setNewMovementName(e.target.value)}
                     placeholder="e.g. BACK SQUAT"
                     className="w-full rounded-[8px] px-3 py-[10px] text-[13px] outline-none"
-                    style={{
-                      background: "var(--s2)",
-                      border:     "1px solid var(--br)",
-                      color:      "var(--tx)",
-                      fontFamily: "'DM Mono', monospace",
-                    }}
-                  />
+                    style={{ background: "var(--s2)", border: "1px solid var(--br)", color: "var(--tx)", fontFamily: "'DM Mono', monospace" }} />
                 </div>
               )}
             </div>
-
-            <button
-              onClick={handleSaveExpectedMax}
+            <button onClick={handleSaveExpectedMax}
               disabled={savingExpected || (!selectedRecord && !newMovementName.trim())}
               className="w-full rounded-[9px] py-[13px] text-[17px] tracking-[2px] cursor-pointer mb-3"
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                background: savingExpected ? "var(--s3)" : "#a78bfa",
-                border:     "none",
-                color:      "#000",
-              }}
-            >
+              style={{ fontFamily: "'Bebas Neue', sans-serif", background: savingExpected ? "var(--s3)" : "#a78bfa", border: "none", color: "#000" }}>
               {savingExpected ? "Saving..." : "Save Expected Max"}
             </button>
-            <button
-              onClick={() => setExpectedMaxTarget(null)}
+            <button onClick={() => setExpectedMaxTarget(null)}
               className="w-full rounded-[9px] py-[13px] text-[17px] tracking-[2px] cursor-pointer"
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                background: "transparent",
-                border:     "1px solid var(--br2)",
-                color:      "var(--mu2)",
-              }}
-            >
+              style={{ fontFamily: "'Bebas Neue', sans-serif", background: "transparent", border: "1px solid var(--br2)", color: "var(--mu2)" }}>
               Cancel
             </button>
           </div>
         </div>
       )}
-      
-      <SearchSheet
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-      />
 
+      <SearchSheet open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 }
