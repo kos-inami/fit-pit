@@ -21,7 +21,7 @@ export default function Sheet({ open, onClose, title, children }: SheetProps) {
 
     return (
         <div
-        className="fixed inset-[0] flex items-end "
+        className="fixed inset-[0] flex items-end z-100"
         style={{ background: "rgba(0,0,0,0.8)" }}
         onClick={(e) => e.target === e.currentTarget && onClose()}
         >
@@ -31,7 +31,7 @@ export default function Sheet({ open, onClose, title, children }: SheetProps) {
             background: "var(--s1)",
             borderTop: "1px solid var(--br)",
             maxHeight: "80vh",
-            padding: "10px 10px 100px",
+            padding: "10px 10px 30px",
             animation: "slideUp .25s cubic-bezier(.16,1,.3,1)",
             }}
         >

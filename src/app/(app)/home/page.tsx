@@ -13,6 +13,13 @@ import { getLocalDateString, getTodayString } from "@/lib/utils";
 
 const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
+const FEELINGS = [
+  { value: "crushed", emoji: "🤪", label: "Crushed" },
+  { value: "strong",  emoji: "🤩", label: "Strong"  },
+  { value: "good",    emoji: "😊", label: "Good"    },
+  { value: "okay",    emoji: "😐", label: "Okay"    },
+  { value: "tired",   emoji: "😴", label: "Tired"   },
+];
 
 function getThisWeekDates(): string[] {
   const now  = new Date();
@@ -31,25 +38,26 @@ function isSessionComplete(s: {
   sets: unknown[]; rounds: unknown[];
   resultRounds: unknown[]; result: string | null; type: string;
 }) {
-  // check result text first — same as isDone in program page
   if (s.result !== null && (s.result as string).trim() !== "") return true;
   const meta = SESSION_TYPE_META[s.type as keyof typeof SESSION_TYPE_META];
   if (meta.useSets) return (s.sets as unknown[]).length > 0;
   if (s.type === "wod" || s.type === "zone") return (s.resultRounds as unknown[]).length > 0;
   return false;
 }
+
 export default function HomePage() {
   const router = useRouter();
-  const { getDay, days, saveRecovery } = useProgram();
+  const { getDay, days, saveRecovery, saveFeeling } = useProgram();
 
-  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryOpen,   setRecoveryOpen]   = useState(false);
+  const [feelingComment, setFeelingComment] = useState("");
+  const [savingComment,  setSavingComment]  = useState(false);
 
   const weekDates = getThisWeekDates();
   const todayDay  = getDay(TODAY_STR);
   const sessions  = todayDay.sessions;
   const lastAI    = todayDay.aiSuggestion;
 
-  // ── session-based completion (not recovery) ───────────
   const dayComplete = sessions.length > 0 && sessions.every(
     s => isSessionComplete(s as Parameters<typeof isSessionComplete>[0])
   );
@@ -65,42 +73,30 @@ export default function HomePage() {
     );
 
     let state: WeekDayState = "empty";
-    if      (isToday)                      state = "today";
-    else if (isPast  && allDone)           state = "done";
-    else if (isPast  && hasSessions)       state = "incomplete";
-    else if (isFuture && hasSessions)      state = "upcoming";
+    if      (isToday)                state = "today";
+    else if (isPast  && allDone)     state = "done";
+    else if (isPast  && hasSessions) state = "incomplete";
+    else if (isFuture && hasSessions) state = "upcoming";
 
     return { label: DAY_LETTERS[i], state, date };
   });
-
-  const allDays       = Object.values(days);
-  const totalSessions = allDays.reduce((a, d) => a + d.sessions.length, 0);
-  const completed     = allDays.reduce((a, d) => a + d.sessions.filter(
-    s => isSessionComplete(s as Parameters<typeof isSessionComplete>[0])
-  ).length, 0);
-
-  const recentDays = Object.values(days)
-    .filter(d => d.date < TODAY_STR && d.sessions.length > 0)
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 2);
 
   const todayLabel = new Date().toLocaleDateString("en-AU", {
     weekday: "long", day: "numeric", month: "short",
   });
 
-  const handleDayClick = (date: string) => {
-    router.push(`/program?date=${date}`);
+  const handleDayClick  = (date: string) => router.push(`/program?date=${date}`);
+  const handleRecovery  = (data: RecoveryLog) => { saveRecovery(TODAY_STR, data); setRecoveryOpen(false); };
+
+  const handleSaveComment = async () => {
+    if (!feelingComment.trim()) return;
+    setSavingComment(true);
+    await saveFeeling(TODAY_STR, todayDay.postWorkoutFeeling, feelingComment.trim());
+    setSavingComment(false);
   };
 
-  const handleRecovery = (data: RecoveryLog) => {
-    saveRecovery(TODAY_STR, data);
-    setRecoveryOpen(false);
-  };
-
-  // suppress unused var warnings
-  void totalSessions;
-  void completed;
-  void recentDays;
+  // suppress unused
+  void Object.values(days);
 
   return (
     <>
@@ -116,6 +112,141 @@ export default function HomePage() {
             style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
             Today · {todayLabel}
           </div>
+
+          {/* post-workout feeling */}
+          {dayComplete && sessions.length > 0 && (
+            <div className="rounded-[12px] mb-[1rem] p-[1rem] overflow-hidden"
+              style={{ background: "linear-gradient(135deg, #001a0d, #002216)", border: "1px solid var(--grn)" }}>
+
+              <div className="px-4 pt-4 pb-3 text-center">
+                <div className="text-[32px] mb-1">🏆</div>
+                <div className="text-[22px] tracking-[2px]"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--grn)" }}>
+                  All Done Today!
+                </div>
+              </div>
+
+              {todayDay.postWorkoutFeeling ? (
+                /* saved state */
+                <div className="px-[1rem] pt-[0.5rem] pb-[0.5rem]">
+                  {/* feeling badge */}
+                  <div className="flex justify-center items-center relative mb-3">
+                    <div className="text-center">
+                      <span className="text-[28px]">
+                        {FEELINGS.find(f => f.value === todayDay.postWorkoutFeeling)?.emoji}
+                      </span>
+                      <div className="text-[14px] mt-1"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}>
+                        {FEELINGS.find(f => f.value === todayDay.postWorkoutFeeling)?.label}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => { saveFeeling(TODAY_STR, null, null); setFeelingComment(""); }}
+                      className="text-[10px] cursor-pointer"
+                      style={{
+                        background: "none", border: "none", color: "var(--mu)",
+                        fontFamily: "'DM Mono', monospace",
+                        position: "absolute", right: "0", top: "0",
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* comment display or input */}
+                  {todayDay.postWorkoutComment ? (
+                    <div className="rounded-[8px] p-[0.5rem] text-left mt-[0.5rem]"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #003322" }}>
+                      <div className="text-[9px] tracking-[1.5px] uppercase mb-[0.25rem]"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                        Comment
+                      </div>
+                      <p className="text-[12px]" style={{ color: "#b8d4c8" }}>
+                        {todayDay.postWorkoutComment}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-[0.5rem]">
+                      <textarea
+                        rows={3}
+                        placeholder="Add a comment... (optional)"
+                        value={feelingComment}
+                        onChange={e => setFeelingComment(e.target.value)}
+                        className="w-full rounded-[8px] p-[0.5rem] text-[12px] outline-none resize-none"
+                        style={{
+                          background: "rgba(255,255,255,0.05)",
+                          border:     "1px solid #003322",
+                          color:      "#b8d4c8",
+                          fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      />
+                      {feelingComment.trim() && (
+                        <button
+                          onClick={handleSaveComment}
+                          disabled={savingComment}
+                          className="w-full mt-2 rounded-[8px] py-[8px] text-[12px] cursor-pointer"
+                          style={{
+                            fontFamily: "'DM Mono', monospace",
+                            background: savingComment ? "var(--s3)" : "var(--grn)",
+                            border:     "none",
+                            color:      savingComment ? "var(--mu)" : "#000",
+                          }}
+                        >
+                          {savingComment ? "Saving..." : "Save Comment"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* prompt — select feeling + optional comment */
+                <div className="px-[1rem] pt-[1rem]">
+                  <div className="text-[11px] tracking-[1px] uppercase mb-[0.5rem] text-center"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "#b8d4c8" }}>
+                    How did you feel?
+                  </div>
+
+                  {/* emoji row */}
+                  <div className="flex gap-[6px] mb-[0.5rem]">
+                    {FEELINGS.map(f => (
+                      <button
+                        key={f.value}
+                        onClick={() => saveFeeling(TODAY_STR, f.value, feelingComment.trim() || null)}
+                        className="flex-1 flex flex-col items-center gap-1 rounded-[10px] py-[10px] cursor-pointer transition-all"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #003322" }}
+                      >
+                        <span className="text-[20px]">{f.emoji}</span>
+                        <span className="text-[9px] tracking-[0.5px]"
+                          style={{ fontFamily: "'DM Mono', monospace", color: "#b8d4c8" }}>
+                          {f.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* optional comment */}
+                  <textarea
+                    rows={3}
+                    placeholder="Add a comment... (optional)"
+                    value={feelingComment}
+                    onChange={e => setFeelingComment(e.target.value)}
+                    className="w-full rounded-[8px] p-[0.5rem] text-[12px] outline-none resize-none"
+                    style={{
+                      background: "rgba(255,255,255,0.05)",
+                      border:     "1px solid #003322",
+                      color:      "#b8d4c8",
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}
+                  />
+                  {/* <div className="text-[10px] mt-1 text-center"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    Tap an emoji to save
+                  </div> */}
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <button
               onClick={() => setRecoveryOpen(true)}

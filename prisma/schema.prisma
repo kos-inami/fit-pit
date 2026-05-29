@@ -45,6 +45,8 @@ model Day {
   sessions     Session[]
   recovery     Recovery?
   aiSuggestion AISuggestion?
+  postWorkoutFeeling String?
+  postWorkoutComment  String?
   createdAt    DateTime      @default(now())
 
   @@unique([userId, date])

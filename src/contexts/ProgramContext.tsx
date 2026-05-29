@@ -37,6 +37,8 @@ export interface ProgDay {
   sessions:     ProgSession[];
   aiSuggestion: AIResult | null;
   recovery:     RecoveryLog | null;
+  postWorkoutFeeling:  string | null;
+  postWorkoutComment:  string | null;
 }
 
 interface ProgramContextType {
@@ -53,6 +55,7 @@ interface ProgramContextType {
   setDayAI:       (date: string, ai: AIResult) => void;
   saveRecovery:   (date: string, rec: RecoveryLog) => Promise<void>;
   deleteRecovery: (date: string) => Promise<void>;
+  saveFeeling: (date: string, feeling: string | null, comment?: string | null) => Promise<void>;
 }
 
 const ProgramContext = createContext<ProgramContextType | null>(null);
@@ -103,6 +106,8 @@ interface DBDay {
   sessions:     DBSession[];
   recovery:     DBRecovery | null;
   aiSuggestion: DBAISuggestion | null;
+  postWorkoutFeeling:  string | null;
+  postWorkoutComment:  string | null;
 }
 
 // ─── helpers ─────────────────────────────────────────────────
@@ -167,6 +172,8 @@ function transformDay(dbDay: DBDay): ProgDay {
       sleepQuality: dbDay.recovery.sleepQuality ?? null,
       notes:        dbDay.recovery.notes        ?? "",
     } : null,
+    postWorkoutFeeling: dbDay.postWorkoutFeeling ?? null,
+    postWorkoutComment: dbDay.postWorkoutComment ?? null,
   };
 }
 
@@ -182,7 +189,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     setDays(prev => ({
       ...prev,
       [date]: updater(
-        prev[date] ?? { id: null, date, sessions: [], aiSuggestion: null, recovery: null }
+        prev[date] ?? { id: null, date, sessions: [], aiSuggestion: null, recovery: null, postWorkoutFeeling: null, postWorkoutComment: null }
       ),
     }));
   }, []);
@@ -198,7 +205,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
       } else {
         setDays(prev => ({
           ...prev,
-          [date]: prev[date] ?? { id: null, date, sessions: [], aiSuggestion: null, recovery: null },
+          [date]: prev[date] ?? { id: null, date, sessions: [], aiSuggestion: null, recovery: null, postWorkoutFeeling: null, postWorkoutComment: null },
         }));
       }
     } catch { /* keep existing */ }
@@ -211,7 +218,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
 
   const getDay = useCallback((date: string): ProgDay => {
     if (userId && !loadedRef.current.has(date)) loadDate(date);
-    return days[date] ?? { id: null, date, sessions: [], aiSuggestion: null, recovery: null };
+    return days[date] ?? { id: null, date, sessions: [], aiSuggestion: null, recovery: null, postWorkoutFeeling: null, postWorkoutComment: null };
   }, [days, userId, loadDate]);
 
   const ensureDayId = useCallback(async (date: string): Promise<string | null> => {
@@ -225,7 +232,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     }
     return null;
   }, [userId, days, updateDay]);
-
+  
   // ── addSession ───────────────────────────────────────────
   const addSession = useCallback(async (
     date: string,
@@ -458,15 +465,40 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     } catch { console.error("Failed to delete recovery"); }
   }, [days, updateDay]);
 
+  const saveFeeling = useCallback(async (
+    date:    string,
+    feeling: string | null,
+    comment?: string | null,
+  ) => {
+    updateDay(date, d => ({
+      ...d,
+      postWorkoutFeeling: feeling,
+      ...(comment !== undefined ? { postWorkoutComment: comment } : {}),
+    }));
+    try {
+      if (!userId) return;
+      const body: Record<string, unknown> = { userId, date, postWorkoutFeeling: feeling };
+      if (comment !== undefined) body.postWorkoutComment = comment;
+      await fetch("/api/days", {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(body),
+      });
+    } catch {
+      console.error("Failed to save feeling");
+    }
+  }, [updateDay, userId]);
+
   return (
     <ProgramContext.Provider value={{
       days, getDay,
       addSession, editSession, removeSession,
       saveResult, clearResult, setAINote, clearAINote, setAILoading,
-      setDayAI, saveRecovery, deleteRecovery,
+      setDayAI, saveRecovery, deleteRecovery, saveFeeling,
     }}>
       {children}
     </ProgramContext.Provider>
+    
   );
 }
 
