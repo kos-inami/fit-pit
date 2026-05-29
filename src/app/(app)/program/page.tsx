@@ -37,9 +37,18 @@ function getOffsetFromDate(dateStr: string): number {
   const target = new Date(dateStr + "T00:00:00");
   const today  = new Date();
   today.setHours(0, 0, 0, 0);
-  return Math.floor(
-    Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) / 7
-  );
+
+  // Monday of target's week
+  const tDay  = target.getDay();
+  const tMon  = new Date(target);
+  tMon.setDate(target.getDate() + (tDay === 0 ? -6 : 1 - tDay));
+
+  // Monday of current week
+  const cDay  = today.getDay();
+  const cMon  = new Date(today);
+  cMon.setDate(today.getDate() + (cDay === 0 ? -6 : 1 - cDay));
+
+  return Math.round((tMon.getTime() - cMon.getTime()) / (7 * 24 * 60 * 60 * 1000));
 }
 
 function isDone(s: ProgSession): boolean {
