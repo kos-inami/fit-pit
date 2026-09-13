@@ -1,4 +1,4 @@
-const CACHE_NAME = "fit-pit-v2";
+const CACHE_NAME = "fit-pit-v3";
 
 const STATIC_ASSETS = [
     "/",
