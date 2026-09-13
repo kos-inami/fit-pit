@@ -12,7 +12,7 @@ import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry } from "@/types";
 interface LogResultSheetProps {
   open:                 boolean;
   onClose:              () => void;
-  session:              { id: string; name: string; type: SessionType; aiNote?: string | null } | null;
+  session:              { id: string; name: string; type: SessionType; aiNote?: string | null; isRestDay: boolean } | null;
   onSave:               (data: {
     result?:       string;
     notes?:        string;
@@ -48,19 +48,21 @@ export default function LogResultSheet({
 
   if (!session) return null;
 
-  const meta      = SESSION_TYPE_META[session.type];
-  const useSets   = meta.useSets;
-  const useRounds = session.type === "wod" || session.type === "zone";
+  const isRestDay = session.isRestDay;
+  const meta      = isRestDay ? null : SESSION_TYPE_META[session.type];
+  const useSets   = meta?.useSets ?? false;
+  const useRounds = !isRestDay && (session.type === "wod" || session.type === "zone");
 
-  const canSave =
+  const canSave = isRestDay ? true :
     useSets   ? (sets.length > 0   || result.trim().length > 0) :
     useRounds ? (rounds.length > 0 || result.trim().length > 0) :
     result.trim().length > 0;
 
   const handleSave = () => {
-    if (useSets)        onSave({ result: result.trim(), notes, sets });
-    else if (useRounds) onSave({ result: result.trim(), notes, resultRounds: rounds });
-    else                onSave({ result: result.trim(), notes });
+    if (isRestDay)       onSave({ notes });
+    else if (useSets)    onSave({ result: result.trim(), notes, sets });
+    else if (useRounds)  onSave({ result: result.trim(), notes, resultRounds: rounds });
+    else                 onSave({ result: result.trim(), notes });
     setResult(""); setNotes(""); setSets([]); setRounds([]);
     onClose();
   };
@@ -71,12 +73,36 @@ export default function LogResultSheet({
     onClose();
   };
 
+  if (isRestDay) {
+    return (
+      <Sheet open={open} onClose={handleClose}>
+        <div className="flex items-center gap-3 mb-5">
+          <h2 className="text-[24px] tracking-[2px]"
+            style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
+            🛌 {session.name}
+          </h2>
+        </div>
+
+        <Textarea
+          label="Notes"
+          placeholder="How did the rest day go?"
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+        />
+
+        <Button onClick={handleSave} disabled={!canSave}>Save Note</Button>
+        <div className="h-2" />
+        <Button variant="outline" onClick={handleClose}>Cancel</Button>
+      </Sheet>
+    );
+  }
+
   return (
     <Sheet open={open} onClose={handleClose}>
       {/* header */}
       <div className="flex items-center gap-3 mb-5">
         <h2 className="text-[24px] tracking-[2px]"
-          style={{ fontFamily: "'Bebas Neue', sans-serif", color: meta.color }}>
+          style={{ fontFamily: "'Bebas Neue', sans-serif", color: meta!.color }}>
           {session.name}
         </h2>
         <TypeChip type={session.type} />

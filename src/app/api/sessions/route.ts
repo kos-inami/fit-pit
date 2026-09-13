@@ -31,9 +31,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { userId, date, type, name, desc, order } = body;
+  const { userId, date, type, name, desc, order, isRestDay } = body;
 
-  if (!userId || !type || !name) {
+  if (!userId || (!isRestDay && (!type || !name))) {
     return NextResponse.json({ error: "userId, type, name required" }, { status: 400 });
   }
 
@@ -49,9 +49,13 @@ export async function POST(req: NextRequest) {
     const session = await db.session.create({
       data: {
         dayId: day.id,
-        type, name,
+        type:  isRestDay ? "rest" : type,
+        name:  name || (isRestDay ? "Rest Day" : name),
         desc:  desc  || "",
         order: order || 0,
+        isRestDay: !!isRestDay,
+        createdById: userId,
+        source: "self",
       },
       include: { sets: true },
     });

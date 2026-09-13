@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
         const sessions = await db.session.findMany({
         where: {
             day: { userId },
+            isRestDay: false,
             ...(type ? { type } : {}),
             ...(q ? {
             OR: [

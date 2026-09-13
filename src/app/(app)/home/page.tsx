@@ -58,7 +58,8 @@ export default function HomePage() {
   const sessions  = todayDay.sessions;
   const lastAI    = todayDay.aiSuggestion;
 
-  const dayComplete = sessions.length > 0 && sessions.every(
+  const workoutSessions = sessions.filter(s => !s.isRestDay);
+  const dayComplete = sessions.length > 0 && workoutSessions.every(
     s => isSessionComplete(s as Parameters<typeof isSessionComplete>[0])
   );
 
@@ -68,7 +69,8 @@ export default function HomePage() {
     const isPast      = date < TODAY_STR;
     const isFuture    = date > TODAY_STR;
     const hasSessions = d.sessions.length > 0;
-    const allDone     = hasSessions && d.sessions.every(
+    const dayWorkoutSessions = d.sessions.filter(s => !s.isRestDay);
+    const allDone     = hasSessions && dayWorkoutSessions.every(
       s => isSessionComplete(s as Parameters<typeof isSessionComplete>[0])
     );
 
@@ -281,6 +283,27 @@ export default function HomePage() {
           <div className="rounded-[12px] mb-5 overflow-hidden"
             style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
             {sessions.map((s, i) => {
+              if (s.isRestDay) {
+                return (
+                  <div key={s.id}
+                    className="flex items-center justify-between"
+                    style={{
+                      padding:      ".5rem",
+                      borderBottom: i < sessions.length - 1 ? "1px solid var(--br)" : "none",
+                    }}>
+                    <div className="py-[0.25rem] min-w-0">
+                      <span className="text-[10px] tracking-[1px] uppercase"
+                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                        🛌 Rest
+                      </span>
+                      <div className="text-[18px] tracking-[0.5px] px-[0.25rem] mt-[0.5rem]"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                        {s.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
               const meta = SESSION_TYPE_META[s.type];
               const done = isSessionComplete(s as Parameters<typeof isSessionComplete>[0]);
               return (

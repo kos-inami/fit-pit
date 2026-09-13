@@ -14,26 +14,29 @@ interface AddSessionSheetProps {
   open:         boolean;
   onClose:      () => void;
   onAdd:        (session: {
-    type:     SessionType;
-    name:     string;
-    desc:     string;
-    planSets: SetLog[];
-    rounds:   RoundEntry[];
+    type:      SessionType;
+    name:      string;
+    desc:      string;
+    planSets:  SetLog[];
+    rounds:    RoundEntry[];
+    isRestDay: boolean;
   }) => void;
   editSession?: {
-    id:       string;
-    type:     SessionType;
-    name:     string;
-    desc:     string;
-    planSets: SetLog[];
-    rounds:   RoundEntry[];
+    id:        string;
+    type:      SessionType;
+    name:      string;
+    desc:      string;
+    planSets:  SetLog[];
+    rounds:    RoundEntry[];
+    isRestDay: boolean;
   } | null;
   onEdit?:   (id: string, data: {
-    type:     SessionType;
-    name:     string;
-    desc:     string;
-    planSets: SetLog[];
-    rounds:   RoundEntry[];
+    type:      SessionType;
+    name:      string;
+    desc:      string;
+    planSets:  SetLog[];
+    rounds:    RoundEntry[];
+    isRestDay: boolean;
   }) => void;
   onDelete?: () => void;
 }
@@ -45,7 +48,10 @@ export default function AddSessionSheet({
   const userId                = authSession?.user?.id;
   const isEdit                = !!editSession;
 
-  const [type,             setType]             = useState<SessionType>(editSession?.type     ?? "wod");
+  const [type,             setType]             = useState<SessionType>(
+    editSession && !editSession.isRestDay ? editSession.type : "wod"
+  );
+  const [isRestDay,        setIsRestDay]        = useState(editSession?.isRestDay ?? false);
   const [name,             setName]             = useState(editSession?.name     ?? "");
   const [desc,             setDesc]             = useState(editSession?.desc     ?? "");
   const [planSets,         setPlanSets]         = useState<SetLog[]>(editSession?.planSets    ?? []);
@@ -125,6 +131,7 @@ export default function AddSessionSheet({
 
   const reset = () => {
     setType("wod");
+    setIsRestDay(false);
     setName("");
     setDesc("");
     setPlanSets([]);
@@ -135,13 +142,14 @@ export default function AddSessionSheet({
   };
 
   const handleSubmit = () => {
-    if (!name.trim()) return;
+    if (!isRestDay && !name.trim()) return;
     const data = {
-      type,
-      name:     name.toUpperCase().trim(),
-      desc:     desc.trim(),
-      planSets,
-      rounds,
+      type:      isRestDay ? ("rest" as SessionType) : type,
+      name:      (name.trim() || (isRestDay ? "Rest Day" : name)).toUpperCase().trim(),
+      desc:      desc.trim(),
+      planSets:  isRestDay ? [] : planSets,
+      rounds:    isRestDay ? [] : rounds,
+      isRestDay,
     };
     if (isEdit && onEdit && editSession) {
       onEdit(editSession.id, data);
@@ -180,8 +188,50 @@ export default function AddSessionSheet({
     <Sheet open={open} onClose={handleClose} title={isEdit ? "Edit Session" : "Add Session"}>
 
 
+      {/* workout / rest day toggle */}
+      <div className="mb-[14px]">
+        {isEdit && (
+          <p className="text-[11px] mb-2"
+            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+            Can&apos;t be changed after creation
+          </p>
+        )}
+        <div className="grid grid-cols-2 gap-[7px]">
+          <button
+            onClick={() => { if (!isEdit) setIsRestDay(false); }}
+            className="rounded-[9px] py-[11px] text-center transition-all"
+            style={{
+              background: !isRestDay ? "var(--acc)14" : "var(--s2)",
+              border:     `1px solid ${!isRestDay ? "var(--acc)66" : "var(--br)"}`,
+              cursor:     isEdit ? "default" : "pointer",
+              opacity:    isEdit && isRestDay ? 0.3 : 1,
+            }}
+          >
+            <div className="text-[11px]"
+              style={{ fontFamily: "'DM Mono', monospace", color: !isRestDay ? "var(--acc)" : "var(--mu2)" }}>
+              Workout
+            </div>
+          </button>
+          <button
+            onClick={() => { if (!isEdit) setIsRestDay(true); }}
+            className="rounded-[9px] py-[11px] text-center transition-all"
+            style={{
+              background: isRestDay ? "var(--acc)14" : "var(--s2)",
+              border:     `1px solid ${isRestDay ? "var(--acc)66" : "var(--br)"}`,
+              cursor:     isEdit ? "default" : "pointer",
+              opacity:    isEdit && !isRestDay ? 0.3 : 1,
+            }}
+          >
+            <div className="text-[11px]"
+              style={{ fontFamily: "'DM Mono', monospace", color: isRestDay ? "var(--acc)" : "var(--mu2)" }}>
+              🛌 Rest Day
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* screenshot scanner button — add mode only */}
-      {!isEdit && (
+      {!isEdit && !isRestDay && (
         <button
           onClick={() => setShowScanner(s => !s)}
           className="w-full rounded-[8px] py-[9px] text-[11px] tracking-[1px] mb-[0.5rem] cursor-pointer"
@@ -197,45 +247,47 @@ export default function AddSessionSheet({
       )}
 
       {/* type picker */}
-      <div className="mb-[14px]">
-        <Label>Session Type</Label>
-        {isEdit && (
-          <p className="text-[11px] mb-2"
-            style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-            Type cannot be changed after creation
-          </p>
-        )}
-        <div className="grid grid-cols-3 gap-[7px] mt-[7px]">
-          {(Object.entries(SESSION_TYPE_META) as [SessionType, typeof meta][]).map(([id, m]) => (
-            <button
-              key={id}
-              onClick={() => {
-                if (!isEdit) {
-                  setType(id);
-                  setPlanSets([]);
-                  setRounds([]);
-                  setSelectedMovement("");
-                  setMaxWeight(null);
-                }
-              }}
-              className="rounded-[9px] py-[11px] px-2 text-center transition-all"
-              style={{
-                background: type === id ? m.color + "14" : "var(--s2)",
-                border:     `1px solid ${type === id ? m.color + "66" : "var(--br)"}`,
-                cursor:     isEdit ? "default" : "pointer",
-                opacity:    isEdit && type !== id ? 0.3 : 1,
-              }}
-            >
-              <div className="text-[11px]"
-                style={{ fontFamily: "'DM Mono', monospace", color: type === id ? m.color : "var(--mu2)" }}>
-                {m.label}
-              </div>
-            </button>
-          ))}
+      {!isRestDay && (
+        <div className="mb-[14px]">
+          <Label>Session Type</Label>
+          {isEdit && (
+            <p className="text-[11px] mb-2"
+              style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+              Type cannot be changed after creation
+            </p>
+          )}
+          <div className="grid grid-cols-3 gap-[7px] mt-[7px]">
+            {(Object.entries(SESSION_TYPE_META) as [SessionType, typeof meta][]).map(([id, m]) => (
+              <button
+                key={id}
+                onClick={() => {
+                  if (!isEdit) {
+                    setType(id);
+                    setPlanSets([]);
+                    setRounds([]);
+                    setSelectedMovement("");
+                    setMaxWeight(null);
+                  }
+                }}
+                className="rounded-[9px] py-[11px] px-2 text-center transition-all"
+                style={{
+                  background: type === id ? m.color + "14" : "var(--s2)",
+                  border:     `1px solid ${type === id ? m.color + "66" : "var(--br)"}`,
+                  cursor:     isEdit ? "default" : "pointer",
+                  opacity:    isEdit && type !== id ? 0.3 : 1,
+                }}
+              >
+                <div className="text-[11px]"
+                  style={{ fontFamily: "'DM Mono', monospace", color: type === id ? m.color : "var(--mu2)" }}>
+                  {m.label}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {showScanner && (
+      {showScanner && !isRestDay && (
         <div className="mb-4 rounded-[10px] p-4"
           style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
           <ScreenshotScanner
@@ -247,23 +299,23 @@ export default function AddSessionSheet({
 
       {/* name */}
       <Input
-        label="Name"
-        placeholder="e.g. FRAN, Back Squat, 5K Run"
+        label={isRestDay ? "Name (optional)" : "Name"}
+        placeholder={isRestDay ? "Rest Day" : "e.g. FRAN, Back Squat, 5K Run"}
         value={name}
         onChange={e => setName(e.target.value)}
       />
 
       {/* description */}
       <Textarea
-        label="Description / Workout Details"
-        placeholder={useSets ? "e.g. 5×5 Back Squat @ 85%" : "e.g. 21-15-9 Thrusters / Pull-ups"}
+        label={isRestDay ? "Guidance (optional)" : "Description / Workout Details"}
+        placeholder={isRestDay ? "e.g. Light walk, mobility work" : useSets ? "e.g. 5×5 Back Squat @ 85%" : "e.g. 21-15-9 Thrusters / Pull-ups"}
         value={desc}
         rows={6}
         onChange={e => setDesc(e.target.value)}
       />
 
       {/* plan sets — Strength / WL / Accessory */}
-      {useSets && (
+      {!isRestDay && useSets && (
         <div className="mb-[14px]">
           <Label>Planned Sets</Label>
 
@@ -375,14 +427,14 @@ export default function AddSessionSheet({
       )}
 
       {/* planning rounds — WOD / Zone */}
-      {(type === "wod" || type === "zone") && (
+      {!isRestDay && (type === "wod" || type === "zone") && (
         <div className="mb-[14px]">
           <Label>Workout Rounds</Label>
           <RoundLogger rounds={rounds} onChange={setRounds} />
         </div>
       )}
 
-      <Button onClick={handleSubmit} disabled={!name.trim()}>
+      <Button onClick={handleSubmit} disabled={!isRestDay && !name.trim()}>
         {isEdit ? "Save Changes" : "Add Session"}
       </Button>
       <div className="h-2" />

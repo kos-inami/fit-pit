@@ -22,6 +22,7 @@ export interface ProgSession {
   notes:        string | null;
   aiNote:       string | null;
   aiLoading:    boolean;
+  isRestDay:    boolean;
 }
 
 export interface AIResult {
@@ -82,6 +83,7 @@ interface DBSession {
   notes:        string | null;
   aiNote:       string | null;
   sets:         DBSet[];
+  isRestDay:    boolean;
 }
 
 interface DBRecovery {
@@ -157,6 +159,7 @@ function transformDay(dbDay: DBDay): ProgDay {
       notes:        s.notes        ?? null,
       aiNote:       s.aiNote       ?? null,
       aiLoading:    false,
+      isRestDay:    s.isRestDay,
     })),
     aiSuggestion: dbDay.aiSuggestion ? {
       summary:      dbDay.aiSuggestion.summary,
@@ -254,6 +257,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
           userId, date,
           type:  s.type, name: s.name, desc: s.desc,
           order: days[date]?.sessions.length ?? 0,
+          isRestDay: s.isRestDay,
         }),
       });
       const json = await res.json();

@@ -162,7 +162,7 @@ export default function AccountPage() {
   const allSessions    = allDays.flatMap(d => d.sessions);
   const totalSessions  = allSessions.length;
   const completedCount = allSessions.filter(
-    s => isComplete(s as Parameters<typeof isComplete>[0])
+    s => !s.isRestDay && isComplete(s as Parameters<typeof isComplete>[0])
   ).length;
 
   const byType = (type: SessionType) =>
@@ -175,7 +175,7 @@ export default function AccountPage() {
 
   const daysLogged    = allDays.filter(d =>
     d.sessions.length > 0 &&
-    d.sessions.every(s => isComplete(s as Parameters<typeof isComplete>[0]))
+    d.sessions.filter(s => !s.isRestDay).every(s => isComplete(s as Parameters<typeof isComplete>[0]))
   ).length;
   const recoveredDays = allDays.filter(d => d.recovery !== null);
   const avgEnergy     = recoveredDays.length > 0

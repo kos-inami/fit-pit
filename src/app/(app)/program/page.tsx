@@ -198,17 +198,17 @@ function ProgramPage() {
   // ── handlers ─────────────────────────────────────────
   const handleAdd = (data: {
     type: SessionType; name: string; desc: string;
-    planSets: SetLog[]; rounds: RoundEntry[];
+    planSets: SetLog[]; rounds: RoundEntry[]; isRestDay: boolean;
   }) => {
     addSession(selectedDate, {
       ...data, sets: [], result: null, notes: null, resultRounds: [],
     });
-    showFlash("Session added");
+    showFlash(data.isRestDay ? "Rest day added" : "Session added");
   };
 
   const handleEdit = (id: string, data: {
     type: SessionType; name: string; desc: string;
-    planSets: SetLog[]; rounds: RoundEntry[];
+    planSets: SetLog[]; rounds: RoundEntry[]; isRestDay: boolean;
   }) => {
     editSession(selectedDate, id, {
       name: data.name, desc: data.desc,
@@ -255,6 +255,7 @@ function ProgramPage() {
     addSession(copyDate, {
       type: copyTarget.type, name: copyTarget.name, desc: copyTarget.desc,
       planSets: copyTarget.planSets, rounds: copyTarget.rounds,
+      isRestDay: copyTarget.isRestDay,
       sets: [], result: null, notes: null, resultRounds: [],
     });
     setCopyTarget(null);
@@ -539,7 +540,7 @@ function ProgramPage() {
         )}
 
         {/* ── Post-Workout Feeling ── */}
-        {selectedDay.sessions.length > 0 && selectedDay.sessions.some(s => isDone(s)) && (
+        {selectedDay.sessions.length > 0 && selectedDay.sessions.some(s => !s.isRestDay && isDone(s)) && (
           <div className="rounded-[12px] mb-[0.5rem] p-[0.5rem] overflow-hidden"
             style={{ background: "var(--s1)", border: "1px solid var(--acc)" }}>
 
@@ -678,6 +679,54 @@ function ProgramPage() {
 
         {/* session cards */}
         {selectedDay.sessions.map((s) => {
+          if (s.isRestDay) {
+            return (
+              <div key={s.id} className="rounded-[11px] mb-[10px] overflow-hidden"
+                style={{
+                  background: "linear-gradient(135deg, #ffffff0a 0%, var(--s1) 60%)",
+                  border:     "1px solid var(--br2)",
+                }}>
+                <div className="flex items-start justify-between px-4 pt-3 pb-2">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <div className="flex items-center gap-2 flex-wrap mb-[0.5rem]">
+                      <span className="text-[20px] tracking-[1px] mx-[.5rem] my-[.5rem]"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                        🛌 {s.name}
+                      </span>
+                    </div>
+                    {s.desc && (
+                      <div className="text-[14px] mx-[.5rem] mb-[.5rem] leading-relaxed mt-1 whitespace-pre-line"
+                        style={{ fontFamily: "'DM Mono', monospace" }}>
+                        {s.desc}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {s.notes && (
+                  <div className="mx-4 mb-3 p-[0.5rem]">
+                    <p className="text-[12px] italic whitespace-pre-line" style={{ color: "var(--mu2)" }}>
+                      &ldquo;{s.notes}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex border-t" style={{ borderColor: "var(--br)" }}>
+                  <button onClick={() => setEditTarget(s)}
+                    className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
+                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: "1px solid var(--br)", color: "var(--mu2)" }}>
+                    Edit
+                  </button>
+                  <button onClick={() => openLogSheet(s)}
+                    className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
+                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", color: "var(--acc)" }}>
+                    {s.notes ? "Edit Note" : "Add Note"}
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
           const meta      = SESSION_TYPE_META[s.type];
           const done      = isDone(s);
           const hasResult = done;
@@ -984,6 +1033,7 @@ function ProgramPage() {
         editSession={editTarget ? {
           id: editTarget.id, type: editTarget.type, name: editTarget.name,
           desc: editTarget.desc, planSets: editTarget.planSets, rounds: editTarget.rounds,
+          isRestDay: editTarget.isRestDay,
         } : null}
         onEdit={handleEdit}
         onDelete={() => { setEditTarget(null); setConfirmId(editTarget!.id); }}
@@ -995,7 +1045,7 @@ function ProgramPage() {
         onClose={() => setLogTarget(null)}
         session={logTarget}
         onSave={handleSaveResult}
-        onDelete={logTarget && isDone(logTarget) ? () => {
+        onDelete={logTarget && !logTarget.isRestDay && isDone(logTarget) ? () => {
           if (!logTarget) return;
           clearResult(selectedDate, logTarget.id);
           setLogTarget(null);

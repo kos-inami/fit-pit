@@ -23,6 +23,7 @@ model User {
   age                Int?
   geminiKey          String?
   createdAt          DateTime    @default(now())
+  roles              String[]    @default(["trainee"])
   days               Day[]
   maxRecords         MaxRecord[]
   aiMessages         AIMessage[]
@@ -69,6 +70,19 @@ model Session {
   sets         Set[]     // result sets (actual performance)
   order        Int      @default(0)
   createdAt    DateTime @default(now())
+  createdById  String?          // who added it; nullable — backfilled from day.userId, no auth-derived creator yet
+  source       String   @default("self")
+  assignmentId String?          // unused until Phase C (ProgramAssignment)
+  isRestDay    Boolean  @default(false)
+}
+
+model SessionType {
+  key      String  @id          // immutable, matches SessionType union values in src/types/index.ts
+  label    String
+  color    String
+  behavior String              // "sets" | "rounds" | "text"
+  order    Int     @default(0)
+  active   Boolean @default(true)
 }
 
 model Set {
