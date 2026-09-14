@@ -5,7 +5,9 @@ export type SessionType =
     | "weightlift"
     | "zone"
     | "run"
-    | "accessory";
+    | "accessory"
+    | "swim"
+    | "other";
 
 export type SessionTypeMeta = {
     label: string;
@@ -21,6 +23,8 @@ export const SESSION_TYPE_META: Record<SessionType, SessionTypeMeta> = {
     zone:       { label: "Zone",        emoji: "ZONE", color: "#ff9055", useSets: false },
     run:        { label: "Run",         emoji: "RUN",  color: "#e8ff3c", useSets: false },
     accessory:  { label: "Accessories", emoji: "ACC",  color: "#f87171", useSets: true  },
+    swim:       { label: "Swim",        emoji: "SWIM", color: "#22d3ee", useSets: false },
+    other:      { label: "Other",       emoji: "OTHER", color: "#94a3b8", useSets: false },
 };
 
 // ─── SET ─────────────────────────────────────────────────────

@@ -12,17 +12,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
-        token.id   = user.id;
-        token.name = user.name;
+        token.id    = user.id;
+        token.name  = user.name;
+        token.roles = user.roles;
+      }
+      if (trigger === "update" && token.id) {
+        const fresh = await db.user.findUnique({
+          where:  { id: token.id as string },
+          select: { roles: true },
+        });
+        if (fresh) token.roles = fresh.roles;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id   = token.id as string;
-        session.user.name = token.name as string;
+        session.user.id    = token.id as string;
+        session.user.name  = token.name as string;
+        session.user.roles = (token.roles as string[]) ?? ["trainee"];
       }
       return session;
     },
@@ -46,7 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.password);
         if (!valid) return null;
 
-        return { id: user.id, name: user.name, email: user.email };
+        return { id: user.id, name: user.name, email: user.email, roles: user.roles };
       },
     }),
   ],

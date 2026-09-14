@@ -246,7 +246,7 @@ export default function ScreenshotScanner({ onFill, onClose }: Props) {
               className="w-full rounded-[8px] px-3 py-[10px] text-[13px] outline-none"
               style={{ background: "var(--s2)", border: "1px solid var(--br)", color: "var(--tx)", cursor: "pointer" }}
             >
-              {(["wod","strength","weightlift","zone","run","accessory"] as SessionType[]).map(t => (
+              {(["wod","strength","weightlift","zone","run","accessory","swim","other"] as SessionType[]).map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>

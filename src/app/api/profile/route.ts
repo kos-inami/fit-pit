@@ -26,6 +26,11 @@ export async function GET(req: NextRequest) {
             height:             true,
             age:                true,
             geminiKey:          true,
+            roles:              true,
+            inviteCode:         true,
+            shareRecovery:      true,
+            shareFeeling:       true,
+            shareBodyStats:     true,
         },
         });
         return NextResponse.json({ user });
@@ -40,6 +45,7 @@ export async function PUT(req: NextRequest) {
         userId, primaryGoal, levelCrossFit, levelWorkout,
         levelWeightLifting, levelCardio, levelRunning,
         weight, height, age, geminiKey,
+        shareRecovery, shareFeeling, shareBodyStats,
     } = body;
 
     if (!userId) {
@@ -60,6 +66,9 @@ export async function PUT(req: NextRequest) {
             height:             height  ? parseFloat(height)  : null,
             age:                age     ? parseInt(age)       : null,
             geminiKey: geminiKey !== undefined ? geminiKey.trim() : undefined,
+            shareRecovery:  shareRecovery  !== undefined ? !!shareRecovery  : undefined,
+            shareFeeling:   shareFeeling   !== undefined ? !!shareFeeling   : undefined,
+            shareBodyStats: shareBodyStats !== undefined ? !!shareBodyStats : undefined,
         },
         select: {
             id: true, name: true, email: true,
@@ -67,6 +76,8 @@ export async function PUT(req: NextRequest) {
             levelWorkout: true, levelWeightLifting: true,
             levelCardio: true, levelRunning: true,
             weight: true, height: true, age: true, geminiKey: true,
+            roles: true, inviteCode: true,
+            shareRecovery: true, shareFeeling: true, shareBodyStats: true,
         },
         });
         return NextResponse.json({ user });

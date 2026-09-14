@@ -24,9 +24,29 @@ model User {
   geminiKey          String?
   createdAt          DateTime    @default(now())
   roles              String[]    @default(["trainee"])
+  inviteCode         String?     @unique
+  shareRecovery      Boolean     @default(false)
+  shareFeeling       Boolean     @default(false)
+  shareBodyStats     Boolean     @default(false)
   days               Day[]
   maxRecords         MaxRecord[]
   aiMessages         AIMessage[]
+  trainerClients     TrainerClient[] @relation("TrainerOf")
+  clientLinks        TrainerClient[] @relation("ClientOf")
+}
+
+model TrainerClient {
+  id        String    @id @default(cuid())
+  trainerId String
+  trainer   User      @relation("TrainerOf", fields: [trainerId], references: [id])
+  traineeId String
+  trainee   User      @relation("ClientOf", fields: [traineeId], references: [id])
+  status    String    @default("pending") // "pending" | "active" | "ended"
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([trainerId, traineeId])
 }
 
 model AIMessage {

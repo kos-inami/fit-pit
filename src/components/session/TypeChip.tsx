@@ -7,6 +7,8 @@ const TYPE_EMOJI: Record<SessionType, string> = {
     zone:       "ZONE",
     run:        "RUN",
     accessory:  "ACC",
+    swim:       "SWIM",
+    other:      "OTHER",
 };
 
 export default function TypeChip({ type }: { type: SessionType }) {

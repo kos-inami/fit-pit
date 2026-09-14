@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import TopNav from "@/components/ui/TopNav";
+import Toggle from "@/components/ui/Toggle";
 import { useProgram } from "@/contexts/ProgramContext";
 import { SESSION_TYPE_META, SessionType } from "@/types";
 
@@ -11,10 +13,11 @@ function isComplete(s: {
   rounds: unknown[]; resultRounds: unknown[];
   result: string | null; type: string;
 }) {
+  if (s.result !== null && s.result.trim() !== "") return true;
   const meta = SESSION_TYPE_META[s.type as SessionType];
   if (meta.useSets) return s.sets.length > 0;
   if (s.type === "wod" || s.type === "zone") return s.resultRounds.length > 0;
-  return s.result !== null;
+  return false;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -62,8 +65,15 @@ const ENERGY_META = [
   { value: 5, label: "Excellent", color: "#3cffa0", emoji: "⚡" },
 ];
 
+interface Connection {
+  id:        string;
+  status:    string;
+  startedAt: string | null;
+  trainer:   { id: string; name: string };
+}
+
 export default function AccountPage() {
-  const { data: authSession } = useSession();
+  const { data: authSession, update: updateSession } = useSession();
   const userId    = authSession?.user?.id;
   const userName  = authSession?.user?.name  ?? "User";
   const userEmail = authSession?.user?.email ?? "";
@@ -93,6 +103,23 @@ export default function AccountPage() {
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
   const [testError,  setTestError]  = useState("");
 
+  const [roles,       setRoles]       = useState<string[]>([]);
+  const [inviteCode,  setInviteCode]  = useState<string | null>(null);
+  const [enabling,    setEnabling]    = useState(false);
+  const [codeCopied,  setCodeCopied]  = useState(false);
+
+  const [sharing, setSharing] = useState({
+    shareRecovery: false, shareFeeling: false, shareBodyStats: false,
+  });
+
+  const [connection,    setConnection]    = useState<Connection | null>(null);
+  const [connectCode,   setConnectCode]   = useState("");
+  const [connecting,    setConnecting]    = useState(false);
+  const [connectError,  setConnectError]  = useState("");
+  const [endingConn,    setEndingConn]    = useState(false);
+
+  const isTrainer = roles.includes("trainer");
+
   useEffect(() => {
     if (!userId) return;
     fetch(`/api/profile?userId=${userId}`)
@@ -111,8 +138,23 @@ export default function AccountPage() {
             age:                json.user.age?.toString()    ?? "",
             geminiKey:          json.user.geminiKey          ?? "",
           });
+          setRoles(json.user.roles ?? []);
+          setInviteCode(json.user.inviteCode ?? null);
+          setSharing({
+            shareRecovery:  !!json.user.shareRecovery,
+            shareFeeling:   !!json.user.shareFeeling,
+            shareBodyStats: !!json.user.shareBodyStats,
+          });
         }
       })
+      .catch(() => {});
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetch("/api/trainer/connection")
+      .then(r => r.json())
+      .then(json => setConnection(json.relation ?? null))
       .catch(() => {});
   }, [userId]);
 
@@ -155,6 +197,79 @@ export default function AccountPage() {
       setTestStatus("fail");
       setTestError("Network error");
     }
+  };
+
+  const handleEnableTrainer = async () => {
+    setEnabling(true);
+    try {
+      const res  = await fetch("/api/trainer/enable", { method: "POST" });
+      const json = await res.json();
+      if (res.ok) {
+        setRoles(json.roles ?? []);
+        setInviteCode(json.inviteCode ?? null);
+        await updateSession({});
+      }
+    } catch { /* ignore */ }
+    setEnabling(false);
+  };
+
+  const handleCopyCode = () => {
+    if (!inviteCode) return;
+    navigator.clipboard.writeText(inviteCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 1500);
+    }).catch(() => {});
+  };
+
+  const handleToggleSharing = async (key: keyof typeof sharing, value: boolean) => {
+    if (!userId) return;
+    const next = { ...sharing, [key]: value };
+    setSharing(next);
+    try {
+      await fetch("/api/profile", {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ userId, ...profile, ...next }),
+      });
+    } catch { /* ignore */ }
+  };
+
+  const handleConnect = async () => {
+    if (!connectCode.trim()) return;
+    setConnecting(true);
+    setConnectError("");
+    try {
+      const res  = await fetch("/api/trainer/connect", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ code: connectCode.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setConnectError(json.error ?? "Failed to connect");
+      } else {
+        setConnectCode("");
+        const refreshed = await fetch("/api/trainer/connection").then(r => r.json());
+        setConnection(refreshed.relation ?? null);
+      }
+    } catch {
+      setConnectError("Network error");
+    }
+    setConnecting(false);
+  };
+
+  const handleEndConnection = async () => {
+    if (!connection) return;
+    setEndingConn(true);
+    try {
+      await fetch(`/api/trainer/relations/${connection.id}`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ action: "end" }),
+      });
+      setConnection(null);
+    } catch { /* ignore */ }
+    setEndingConn(false);
   };
 
   // ── stats ─────────────────────────────────────────────
@@ -471,6 +586,146 @@ export default function AccountPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* coaching — trainer mode */}
+        <SectionLabel>Coaching</SectionLabel>
+        <div className="rounded-[12px] px-4 mb-5"
+          style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
+          <div className="py-[14px]">
+            {isTrainer ? (
+              <>
+                <div className="text-[10px] tracking-[1.5px] uppercase mb-2"
+                  style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                  Your Invite Code
+                </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex-1 rounded-[8px] px-3 py-[10px] text-[16px] tracking-[3px] text-center"
+                    style={{ background: "var(--s2)", border: "1px solid var(--br)", fontFamily: "'DM Mono', monospace", color: "var(--acc)" }}>
+                    {inviteCode ?? "—"}
+                  </div>
+                  <button
+                    onClick={handleCopyCode}
+                    className="rounded-[8px] px-4 py-[10px] text-[11px] cursor-pointer"
+                    style={{ fontFamily: "'DM Mono', monospace", background: "var(--s2)", border: "1px solid var(--br)", color: codeCopied ? "var(--grn)" : "var(--mu2)" }}
+                  >
+                    {codeCopied ? "✓ Copied" : "Copy"}
+                  </button>
+                </div>
+                <Link href="/clients" style={{ textDecoration: "none" }}>
+                  <div className="w-full rounded-[8px] py-[11px] text-center text-[13px] cursor-pointer"
+                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--acc)", color: "var(--acc)" }}>
+                    View My Clients →
+                  </div>
+                </Link>
+              </>
+            ) : (
+              <>
+                <div className="text-[13px] mb-3" style={{ color: "var(--mu2)" }}>
+                  Enable trainer mode to coach clients — you&apos;ll get a permanent invite
+                  code to share, and keep your own trainee calendar too.
+                </div>
+                <button
+                  onClick={handleEnableTrainer}
+                  disabled={enabling}
+                  className="w-full rounded-[8px] py-[11px] text-[13px] tracking-[1px] cursor-pointer"
+                  style={{ fontFamily: "'DM Mono', monospace", background: enabling ? "var(--s2)" : "var(--acc)", border: "none", color: enabling ? "var(--mu)" : "#000" }}
+                >
+                  {enabling ? "Enabling..." : "Become a Trainer"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* connect to a trainer */}
+        <SectionLabel>Connect to a Trainer</SectionLabel>
+        <div className="rounded-[12px] px-4 mb-5"
+          style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
+          <div className="py-[14px]">
+            {connection?.status === "active" ? (
+              <>
+                <div className="text-[13px] mb-1">
+                  Connected to <span style={{ color: "var(--grn)" }}>{connection.trainer.name}</span>
+                </div>
+                {connection.startedAt && (
+                  <div className="text-[11px] mb-3"
+                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    Since {new Date(connection.startedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
+                  </div>
+                )}
+                <button
+                  onClick={handleEndConnection}
+                  disabled={endingConn}
+                  className="w-full rounded-[8px] py-[10px] text-[12px] cursor-pointer"
+                  style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--red)", color: "var(--red)" }}
+                >
+                  {endingConn ? "Disconnecting..." : "Disconnect"}
+                </button>
+              </>
+            ) : connection?.status === "pending" ? (
+              <>
+                <div className="text-[13px] mb-3">
+                  Request sent to <span style={{ color: "var(--acc)" }}>{connection.trainer.name}</span> — waiting for approval
+                </div>
+                <button
+                  onClick={handleEndConnection}
+                  disabled={endingConn}
+                  className="w-full rounded-[8px] py-[10px] text-[12px] cursor-pointer"
+                  style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--br2)", color: "var(--mu2)" }}
+                >
+                  {endingConn ? "Cancelling..." : "Cancel Request"}
+                </button>
+              </>
+            ) : (
+              <>
+                <input
+                  value={connectCode}
+                  onChange={e => setConnectCode(e.target.value.toUpperCase())}
+                  placeholder="Enter invite code"
+                  className="w-full rounded-[8px] px-3 py-[10px] text-[14px] tracking-[2px] text-center outline-none mb-2"
+                  style={{ background: "var(--s2)", border: "1px solid var(--br)", color: "var(--tx)", fontFamily: "'DM Mono', monospace" }}
+                />
+                {connectError && (
+                  <div className="text-[11px] mb-2" style={{ color: "var(--red)" }}>{connectError}</div>
+                )}
+                <button
+                  onClick={handleConnect}
+                  disabled={connecting || !connectCode.trim()}
+                  className="w-full rounded-[8px] py-[11px] text-[13px] tracking-[1px] cursor-pointer"
+                  style={{ fontFamily: "'DM Mono', monospace", background: connecting ? "var(--s2)" : "var(--acc)", border: "none", color: connecting ? "var(--mu)" : "#000" }}
+                >
+                  {connecting ? "Connecting..." : "Connect"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* sharing */}
+        <SectionLabel>Sharing</SectionLabel>
+        <div className="rounded-[12px] px-4 mb-5"
+          style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
+          <Toggle
+            checked={sharing.shareRecovery}
+            onChange={v => handleToggleSharing("shareRecovery", v)}
+            label="Recovery"
+            sublabel="Let your trainer see your recovery log"
+          />
+          <div style={{ borderTop: "1px solid var(--br)" }} />
+          <Toggle
+            checked={sharing.shareFeeling}
+            onChange={v => handleToggleSharing("shareFeeling", v)}
+            label="Post-Workout Feeling"
+            sublabel="Let your trainer see how you felt + comments"
+          />
+          <div style={{ borderTop: "1px solid var(--br)" }} />
+          <Toggle
+            checked={sharing.shareBodyStats}
+            onChange={v => handleToggleSharing("shareBodyStats", v)}
+            label="Body Stats"
+            sublabel="Let your trainer see weight, height, age"
+          />
         </div>
 
         {/* save button */}

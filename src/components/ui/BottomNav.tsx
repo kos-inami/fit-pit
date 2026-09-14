@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { getTodayString } from "@/lib/utils";
 
 const STATIC_TABS = [
@@ -52,9 +53,29 @@ const STATIC_TABS = [
   },
 ];
 
+const CLIENTS_TAB = {
+  href:       "/clients",
+  label:      "Clients",
+  programTab: false,
+  icon: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="20" height="20">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 00-3-3.87" />
+      <path d="M16 3.13a4 4 0 010 7.75" />
+    </svg>
+  ),
+};
+
 export default function BottomNav() {
   const pathname = usePathname();
   const router   = useRouter();
+  const { data: authSession } = useSession();
+  const isTrainer = authSession?.user?.roles?.includes("trainer") ?? false;
+
+  const tabs = isTrainer
+    ? [...STATIC_TABS.slice(0, 3), CLIENTS_TAB, ...STATIC_TABS.slice(3)]
+    : STATIC_TABS;
 
   return (
     <nav
@@ -67,7 +88,7 @@ export default function BottomNav() {
       }}
     >
       <div className="flex">
-        {STATIC_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const active = pathname.startsWith(tab.href);
 
           if (tab.programTab) {

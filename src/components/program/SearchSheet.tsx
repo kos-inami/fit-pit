@@ -17,6 +17,8 @@ const TYPE_OPTIONS: { value: string; label: string }[] = [
     { value: "zone",        label: "Zone"      },
     { value: "run",         label: "Run"       },
     { value: "accessory",   label: "Accessory" },
+    { value: "swim",        label: "Swim"      },
+    { value: "other",       label: "Other"     },
 ];
 
 export default function SearchSheet({ open, onClose }: SearchSheetProps) {
