@@ -1,9 +1,12 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, ProgramAssignment } from "@prisma/client";
+import { db } from "@/lib/db";
 import { addDaysToDateString } from "@/lib/utils";
 import { calcFromPercent } from "@/lib/setMath";
 import { SESSION_TYPE_META, SessionType, TemplateSetLog } from "@/types";
 
 type TxClient = Prisma.TransactionClient;
+
+const MAX_WEEKS_PER_ACTION = 26;
 
 /**
  * The trainee's current best actual (non-expected) MaxRecord weight per
@@ -147,4 +150,82 @@ export async function generateForWeekRange(params: GenerateParams): Promise<numb
         await tx.session.createMany({ data: sessionRows });
     }
     return sessionRows.length;
+}
+
+interface AssignParams {
+    programId:    string;
+    trainerId:    string; // program.trainerId — always the createdById on generated sessions
+    traineeId:    string;
+    assignedById: string; // who triggered this: trainer (push) or trainee (self-enrol)
+    startDate:    string;
+    startWeek:    number;
+    endWeek:      number | null;
+}
+
+type AssignResult =
+    | { ok: true; assignment: ProgramAssignment; generatedCount: number }
+    | { ok: false; status: number; error: string };
+
+/**
+ * Shared by the trainer-push (assign) and self-enrol (enroll) routes so
+ * generation behaves identically no matter who triggered it — only the
+ * caller-specific authorization checks (ownership vs. active client link)
+ * differ between the two routes.
+ */
+export async function assignProgramToTrainee(params: AssignParams): Promise<AssignResult> {
+    const { programId, trainerId, traineeId, assignedById, startDate, startWeek, endWeek } = params;
+
+    const lastWeek = await db.programWeek.findFirst({
+        where:   { programId },
+        orderBy: { weekNumber: "desc" },
+    });
+    const maxProgramWeek = lastWeek?.weekNumber ?? 0;
+    const effectiveEndWeek = endWeek ?? maxProgramWeek;
+
+    if (effectiveEndWeek < startWeek) {
+        return { ok: false, status: 400, error: "endWeek must be >= startWeek" };
+    }
+    if (effectiveEndWeek - startWeek + 1 > MAX_WEEKS_PER_ACTION) {
+        return {
+            ok: false, status: 400,
+            error: `Cannot generate more than ${MAX_WEEKS_PER_ACTION} weeks in a single action — assign in parts or extend by appending.`,
+        };
+    }
+
+    const previous = await db.programAssignment.findFirst({
+        where:   { programId, traineeId },
+        orderBy: { assignedAt: "desc" },
+    });
+
+    const result = await db.$transaction(async (tx) => {
+        const assignment = await tx.programAssignment.create({
+            data: {
+                programId,
+                traineeId,
+                startDate,
+                startWeek,
+                endWeek,
+                assignedById,
+                previousAssignmentId: previous?.id ?? null,
+            },
+        });
+
+        const maxRecordMap = await buildMaxRecordMap(tx, traineeId);
+        const generatedCount = await generateForWeekRange({
+            tx,
+            programId,
+            trainerId,
+            traineeId,
+            assignmentId: assignment.id,
+            startDate,
+            startWeek,
+            fromWeek: startWeek,
+            toWeek:   effectiveEndWeek,
+            maxRecordMap,
+        });
+
+        return { assignment, generatedCount };
+    }, { timeout: 15000 });
+
+    return { ok: true, ...result };
 }

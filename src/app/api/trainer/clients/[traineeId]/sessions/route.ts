@@ -35,8 +35,11 @@ export async function GET(
         where:   { userId_date: { userId: traineeId, date } },
         include: {
             sessions: {
-                include: { sets: { orderBy: { setNumber: "asc" } } },
-                orderBy: { order: "asc" },
+                include: {
+                    sets: { orderBy: { setNumber: "asc" } },
+                    assignment: { select: { program: { select: { name: true } } } },
+                },
+                orderBy: [{ order: "asc" }, { assignment: { assignedAt: "asc" } }],
             },
             recovery: true,
         },

@@ -16,8 +16,11 @@ export async function GET(req: NextRequest) {
       where: { userId_date: { userId, date } },
       include: {
         sessions: {
-          include: { sets: { orderBy: { setNumber: "asc" } } },
-          orderBy: { order: "asc" },
+          include: {
+            sets: { orderBy: { setNumber: "asc" } },
+            assignment: { select: { program: { select: { name: true } } } },
+          },
+          orderBy: [{ order: "asc" }, { assignment: { assignedAt: "asc" } }],
         },
         recovery:     true,
         aiSuggestion: true,

@@ -660,6 +660,12 @@ export default function AccountPage() {
                     Since {new Date(connection.startedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
                   </div>
                 )}
+                <Link href="/programs/browse" style={{ textDecoration: "none" }}>
+                  <div className="w-full rounded-[8px] py-[11px] mb-2 text-center text-[13px] cursor-pointer"
+                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--acc)", color: "var(--acc)" }}>
+                    Browse Programs →
+                  </div>
+                </Link>
                 <button
                   onClick={handleEndConnection}
                   disabled={endingConn}

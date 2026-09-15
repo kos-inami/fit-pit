@@ -696,7 +696,7 @@ function ProgramPage() {
                       {s.source === "trainer" && (
                         <span className="text-[9px] tracking-[1px] uppercase px-[6px] py-[2px] rounded-full"
                           style={{ fontFamily: "'DM Mono', monospace", background: "var(--s2)", border: "1px solid var(--br2)", color: "var(--mu)" }}>
-                          🎯 Trainer Assigned
+                          🎯 {s.programName ?? "Trainer Assigned"}
                         </span>
                       )}
                     </div>
@@ -758,7 +758,7 @@ function ProgramPage() {
                     {s.source === "trainer" && (
                       <span className="text-[9px] tracking-[1px] uppercase px-[6px] py-[2px] rounded-full"
                         style={{ fontFamily: "'DM Mono', monospace", background: "var(--s2)", border: "1px solid var(--br2)", color: "var(--mu)" }}>
-                        🎯 Trainer Assigned
+                        🎯 {s.programName ?? "Trainer Assigned"}
                       </span>
                     )}
                   </div>

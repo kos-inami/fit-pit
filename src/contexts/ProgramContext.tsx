@@ -24,6 +24,7 @@ export interface ProgSession {
   aiLoading:    boolean;
   isRestDay:    boolean;
   source:       string;
+  programName:  string | null;
 }
 
 export interface AIResult {
@@ -46,7 +47,7 @@ export interface ProgDay {
 interface ProgramContextType {
   days:           Record<string, ProgDay>;
   getDay:         (date: string) => ProgDay;
-  addSession:     (date: string, s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source">) => Promise<void>;
+  addSession:     (date: string, s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source" | "programName">) => Promise<void>;
   editSession:    (date: string, id: string, data: Partial<Pick<ProgSession, "name" | "desc" | "rounds" | "planSets">>) => Promise<void>;
   removeSession:  (date: string, id: string) => Promise<void>;
   saveResult:     (date: string, id: string, data: Partial<Pick<ProgSession, "result" | "notes" | "sets" | "resultRounds">>) => Promise<void>;
@@ -86,6 +87,7 @@ interface DBSession {
   sets:         DBSet[];
   isRestDay:    boolean;
   source:       string;
+  assignment:   { program: { name: string } | null } | null;
 }
 
 interface DBRecovery {
@@ -163,6 +165,7 @@ function transformDay(dbDay: DBDay): ProgDay {
       aiLoading:    false,
       isRestDay:    s.isRestDay,
       source:       s.source,
+      programName:  s.assignment?.program?.name ?? null,
     })),
     aiSuggestion: dbDay.aiSuggestion ? {
       summary:      dbDay.aiSuggestion.summary,
@@ -242,14 +245,14 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   // ── addSession ───────────────────────────────────────────
   const addSession = useCallback(async (
     date: string,
-    s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source">
+    s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source" | "programName">
   ) => {
     if (!userId) return;
     const tempId = `temp_${crypto.randomUUID()}`;
 
     updateDay(date, d => ({
       ...d,
-      sessions: [...d.sessions, { ...s, id: tempId, aiNote: null, aiLoading: false, source: "self" }],
+      sessions: [...d.sessions, { ...s, id: tempId, aiNote: null, aiLoading: false, source: "self", programName: null }],
     }));
 
     try {
