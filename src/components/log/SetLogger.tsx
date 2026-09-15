@@ -2,16 +2,13 @@
 
 import { useState } from "react";
 import { SetLog } from "@/types";
+import { calcFromPercent } from "@/lib/setMath";
 
 interface SetLoggerProps {
     sets:            SetLog[];
     onChange:        (sets: SetLog[]) => void;
     maxWeight?:      number | null;
     defaultPercent?: boolean; // true = % default, false = kg default
-}
-
-function calcFromPercent(pct: number, max: number): number {
-  return Math.round((max * pct / 100) / 2.5) * 2.5;
 }
 
 export default function SetLogger({

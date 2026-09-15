@@ -23,6 +23,7 @@ export interface ProgSession {
   aiNote:       string | null;
   aiLoading:    boolean;
   isRestDay:    boolean;
+  source:       string;
 }
 
 export interface AIResult {
@@ -45,7 +46,7 @@ export interface ProgDay {
 interface ProgramContextType {
   days:           Record<string, ProgDay>;
   getDay:         (date: string) => ProgDay;
-  addSession:     (date: string, s: Omit<ProgSession, "id" | "aiLoading" | "aiNote">) => Promise<void>;
+  addSession:     (date: string, s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source">) => Promise<void>;
   editSession:    (date: string, id: string, data: Partial<Pick<ProgSession, "name" | "desc" | "rounds" | "planSets">>) => Promise<void>;
   removeSession:  (date: string, id: string) => Promise<void>;
   saveResult:     (date: string, id: string, data: Partial<Pick<ProgSession, "result" | "notes" | "sets" | "resultRounds">>) => Promise<void>;
@@ -84,6 +85,7 @@ interface DBSession {
   aiNote:       string | null;
   sets:         DBSet[];
   isRestDay:    boolean;
+  source:       string;
 }
 
 interface DBRecovery {
@@ -160,6 +162,7 @@ function transformDay(dbDay: DBDay): ProgDay {
       aiNote:       s.aiNote       ?? null,
       aiLoading:    false,
       isRestDay:    s.isRestDay,
+      source:       s.source,
     })),
     aiSuggestion: dbDay.aiSuggestion ? {
       summary:      dbDay.aiSuggestion.summary,
@@ -239,14 +242,14 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   // ── addSession ───────────────────────────────────────────
   const addSession = useCallback(async (
     date: string,
-    s: Omit<ProgSession, "id" | "aiLoading" | "aiNote">
+    s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source">
   ) => {
     if (!userId) return;
     const tempId = `temp_${crypto.randomUUID()}`;
 
     updateDay(date, d => ({
       ...d,
-      sessions: [...d.sessions, { ...s, id: tempId, aiNote: null, aiLoading: false }],
+      sessions: [...d.sessions, { ...s, id: tempId, aiNote: null, aiLoading: false, source: "self" }],
     }));
 
     try {

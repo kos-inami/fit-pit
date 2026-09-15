@@ -23,6 +23,12 @@ export function getOrCreateDay(userId: string, date: string) {
   return date || getTodayString();
 }
 
+export function addDaysToDateString(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return getLocalDateString(d);
+}
+
 
 export function calculateExpectedMax(
   resultSets: { weight: number | null; reps: number | null }[]

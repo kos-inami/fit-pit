@@ -33,6 +33,10 @@ model User {
   aiMessages         AIMessage[]
   trainerClients     TrainerClient[] @relation("TrainerOf")
   clientLinks        TrainerClient[] @relation("ClientOf")
+  programs                   Program[]
+  assignmentsAsTrainee       ProgramAssignment[] @relation("AssignmentTrainee")
+  assignmentsAssignedByMe    ProgramAssignment[] @relation("AssignmentAssignedBy")
+  assignmentsCompletedByMe   ProgramAssignment[] @relation("AssignmentCompletedBy")
 }
 
 model TrainerClient {
@@ -92,8 +96,78 @@ model Session {
   createdAt    DateTime @default(now())
   createdById  String?          // who added it; nullable — backfilled from day.userId, no auth-derived creator yet
   source       String   @default("self")
-  assignmentId String?          // unused until Phase C (ProgramAssignment)
+  assignmentId String?
+  assignment   ProgramAssignment? @relation(fields: [assignmentId], references: [id])
   isRestDay    Boolean  @default(false)
+}
+
+model Program {
+  id          String   @id @default(cuid())
+  trainerId   String
+  trainer     User     @relation(fields: [trainerId], references: [id])
+  name        String
+  description String?
+  status      String   @default("draft")     // "draft" | "published" | "archived"
+  accessMode  String   @default("assigned")  // "assigned" | "open"
+  createdAt   DateTime @default(now())
+  weeks       ProgramWeek[]
+  assignments ProgramAssignment[]
+}
+
+model ProgramWeek {
+  id         String       @id @default(cuid())
+  programId  String
+  program    Program      @relation(fields: [programId], references: [id])
+  weekNumber Int
+  days       ProgramDay[]
+
+  @@unique([programId, weekNumber])
+}
+
+model ProgramDay {
+  id        String   @id @default(cuid())
+  weekId    String
+  week      ProgramWeek @relation(fields: [weekId], references: [id])
+  dayIndex  Int      // 1=Mon..7=Sun
+  isRestDay Boolean  @default(false)
+  sessions  ProgramSession[]
+
+  @@unique([weekId, dayIndex])
+}
+
+model ProgramSession {
+  id                String     @id @default(cuid())
+  dayId             String
+  day               ProgramDay @relation(fields: [dayId], references: [id])
+  type              String     // SessionType key — meaningless when the parent ProgramDay.isRestDay
+  name              String
+  desc              String?
+  planSets          String?    // JSON: {setNumber,percentage,reps,notes}[]
+  rounds            String?    // JSON: RoundEntry[]
+  referenceMovement String?
+  order             Int        @default(0)
+}
+
+model ProgramAssignment {
+  id                   String    @id @default(cuid())
+  programId            String
+  program              Program   @relation(fields: [programId], references: [id])
+  traineeId            String
+  trainee              User      @relation("AssignmentTrainee", fields: [traineeId], references: [id])
+  startDate            String
+  startWeek            Int       @default(1)
+  endWeek              Int?
+  assignedById         String
+  assignedBy           User      @relation("AssignmentAssignedBy", fields: [assignedById], references: [id])
+  previousAssignmentId String?
+  previousAssignment   ProgramAssignment?  @relation("Reassignment", fields: [previousAssignmentId], references: [id])
+  reassignments        ProgramAssignment[] @relation("Reassignment")
+  status               String    @default("active") // "active" | "completed" | "cancelled"
+  completedById        String?
+  completedBy          User?     @relation("AssignmentCompletedBy", fields: [completedById], references: [id])
+  assignedAt           DateTime  @default(now())
+  completedAt          DateTime?
+  generatedSessions    Session[]
 }
 
 model SessionType {

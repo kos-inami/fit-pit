@@ -107,6 +107,16 @@ const formatTime = (seconds: number): string => {
     return `${m}:${s.toString().padStart(2, "0")}`;
 };
 
+// ─── PROGRAM TEMPLATE SET ──────────────────────────────────────
+// Unresolved plan set on a ProgramSession — no weight/maxWeight yet,
+// those only exist once generated for a specific trainee (see SetLog).
+export type TemplateSetLog = {
+    setNumber:  number;
+    percentage: number | null;
+    reps:       number | null;
+    notes:      string;
+};
+
 // ─── ROUND (WOD / Zone) ──────────────────────────────────────
 export type RoundEntry = {
     roundNumber: number;

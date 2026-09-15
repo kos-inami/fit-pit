@@ -693,6 +693,12 @@ function ProgramPage() {
                         style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                         🛌 {s.name}
                       </span>
+                      {s.source === "trainer" && (
+                        <span className="text-[9px] tracking-[1px] uppercase px-[6px] py-[2px] rounded-full"
+                          style={{ fontFamily: "'DM Mono', monospace", background: "var(--s2)", border: "1px solid var(--br2)", color: "var(--mu)" }}>
+                          🎯 Trainer Assigned
+                        </span>
+                      )}
                     </div>
                     {s.desc && (
                       <div className="text-[14px] mx-[.5rem] mb-[.5rem] leading-relaxed mt-1 whitespace-pre-line"
@@ -712,11 +718,13 @@ function ProgramPage() {
                 )}
 
                 <div className="flex border-t" style={{ borderColor: "var(--br)" }}>
-                  <button onClick={() => setEditTarget(s)}
-                    className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
-                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: "1px solid var(--br)", color: "var(--mu2)" }}>
-                    Edit
-                  </button>
+                  {s.source !== "trainer" && (
+                    <button onClick={() => setEditTarget(s)}
+                      className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
+                      style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: "1px solid var(--br)", color: "var(--mu2)" }}>
+                      Edit
+                    </button>
+                  )}
                   <button onClick={() => openLogSheet(s)}
                     className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
                     style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", color: "var(--acc)" }}>
@@ -747,6 +755,12 @@ function ProgramPage() {
                       {s.name}
                     </span>
                     <TypeChip type={s.type} />
+                    {s.source === "trainer" && (
+                      <span className="text-[9px] tracking-[1px] uppercase px-[6px] py-[2px] rounded-full"
+                        style={{ fontFamily: "'DM Mono', monospace", background: "var(--s2)", border: "1px solid var(--br2)", color: "var(--mu)" }}>
+                        🎯 Trainer Assigned
+                      </span>
+                    )}
                   </div>
                   {s.desc && (
                     <div className="text-[14px] mx-[.5rem] mb-[.5rem] leading-relaxed mt-1 whitespace-pre-line"
@@ -998,23 +1012,27 @@ function ProgramPage() {
                 );
               })()}
 
-              {/* action row */}
+              {/* action row — trainer-assigned sessions: Log Result only (no Edit Plan / Copy) */}
               <div className="flex border-t" style={{ borderColor: `${meta.color}22` }}>
-                <button onClick={() => setEditTarget(s)}
-                  className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
-                  style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: "var(--mu2)" }}>
-                  Edit Plan
-                </button>
+                {s.source !== "trainer" && (
+                  <button onClick={() => setEditTarget(s)}
+                    className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
+                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: "var(--mu2)" }}>
+                    Edit Plan
+                  </button>
+                )}
                 <button onClick={() => openLogSheet(s)}
                   className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
                   style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: done ? "var(--grn)" : meta.color }}>
                   {done ? "Edit Result" : "Log Result"}
                 </button>
-                <button onClick={() => { setCopyTarget(s); setCopyDate(TODAY_STR); }}
-                  className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
-                  style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: "var(--mu2)" }}>
-                  Copy
-                </button>
+                {s.source !== "trainer" && (
+                  <button onClick={() => { setCopyTarget(s); setCopyDate(TODAY_STR); }}
+                    className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
+                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: "var(--mu2)" }}>
+                    Copy
+                  </button>
+                )}
               </div>
             </div>
           );
