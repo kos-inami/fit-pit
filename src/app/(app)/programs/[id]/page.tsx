@@ -56,7 +56,10 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
     const [sessionSheet, setSessionSheet] = useState<{ dayId: string; edit: (ProgramSessionData & { id: string }) | null } | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [confirmDeleteProgram, setConfirmDeleteProgram] = useState(false);
-    const [confirmDeleteAssignmentId, setConfirmDeleteAssignmentId] = useState<string | null>(null);
+    const [assignmentDeletePreview, setAssignmentDeletePreview] = useState<{
+        id: string; toDeleteCount: number; toKeepCount: number;
+    } | null>(null);
+    const [confirmDeleteWeek, setConfirmDeleteWeek] = useState<{ id: string; weekNumber: number } | null>(null);
     const [assignOpen, setAssignOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [flash, setFlash] = useState("");
@@ -209,19 +212,44 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
         router.push("/programs");
     };
 
-    const handleDeleteAssignment = async () => {
-        if (!confirmDeleteAssignmentId) return;
-        setBusy(true);
-        const res  = await fetch(`/api/programs/${programId}/assignments/${confirmDeleteAssignmentId}`, { method: "DELETE" });
+    const handleClickDeleteAssignment = async (assignmentId: string) => {
+        const res  = await fetch(`/api/programs/${programId}/assignments/${assignmentId}`);
         const json = await res.json();
-        setConfirmDeleteAssignmentId(null);
+        if (!res.ok) {
+            showFlash(json.error ?? "Failed to load assignment");
+            return;
+        }
+        setAssignmentDeletePreview({ id: assignmentId, toDeleteCount: json.toDeleteCount, toKeepCount: json.toKeepCount });
+    };
+
+    const handleDeleteAssignment = async () => {
+        if (!assignmentDeletePreview) return;
+        setBusy(true);
+        const res  = await fetch(`/api/programs/${programId}/assignments/${assignmentDeletePreview.id}`, { method: "DELETE" });
+        const json = await res.json();
+        setAssignmentDeletePreview(null);
         setBusy(false);
         if (!res.ok) {
             showFlash(json.error ?? "Failed to delete assignment");
             return;
         }
         await load();
-        showFlash("Assignment deleted");
+        showFlash(`Deleted — ${json.deletedSessions} session(s) removed, ${json.keptSessions} kept`);
+    };
+
+    const handleDeleteWeek = async () => {
+        if (!confirmDeleteWeek) return;
+        setBusy(true);
+        const res  = await fetch(`/api/programs/${programId}/weeks/${confirmDeleteWeek.id}`, { method: "DELETE" });
+        const json = await res.json();
+        setConfirmDeleteWeek(null);
+        setBusy(false);
+        if (!res.ok) {
+            showFlash(json.error ?? "Failed to delete week");
+            return;
+        }
+        await load();
+        showFlash("Week deleted");
     };
 
     return (
@@ -288,8 +316,15 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                 </div>
                 {program.weeks.map(week => (
                     <div key={week.id} className="rounded-[12px] mb-3 overflow-hidden" style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
-                        <div className="px-4 pt-3 pb-2 text-[13px] tracking-[1px]" style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
-                            Week {week.weekNumber}
+                        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+                            <span className="text-[13px] tracking-[1px]" style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--acc)" }}>
+                                Week {week.weekNumber}
+                            </span>
+                            <button onClick={() => setConfirmDeleteWeek({ id: week.id, weekNumber: week.weekNumber })}
+                                className="text-[10px] px-2 py-[3px] rounded-full cursor-pointer"
+                                style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--red)", color: "var(--red)" }}>
+                                Delete Week
+                            </button>
                         </div>
                         <div className="flex px-3 pb-3 gap-[4px]">
                             {week.days.map((day, i) => {
@@ -405,7 +440,7 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                                             </span>
                                         </Link>
                                     )}
-                                    {a.status === "active" ? (
+                                    {a.status === "active" && (
                                         <>
                                             <button onClick={() => handleAssignmentAction(a.id, "complete")}
                                                 className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
@@ -418,13 +453,12 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                                                 Cancel
                                             </button>
                                         </>
-                                    ) : (
-                                        <button onClick={() => setConfirmDeleteAssignmentId(a.id)}
-                                            className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
-                                            style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--red)", color: "var(--red)" }}>
-                                            Delete
-                                        </button>
                                     )}
+                                    <button onClick={() => handleClickDeleteAssignment(a.id)}
+                                        className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
+                                        style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--red)", color: "var(--red)" }}>
+                                        Delete
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -457,10 +491,21 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
             />
 
             <ConfirmDialog
-                open={confirmDeleteAssignmentId !== null}
-                message="Permanently delete this assignment record? This cannot be undone."
+                open={assignmentDeletePreview !== null}
+                message={assignmentDeletePreview
+                    ? `This will delete ${assignmentDeletePreview.toDeleteCount} future session(s) with no logged result and keep ${assignmentDeletePreview.toKeepCount} session(s) with history (unlinked from this assignment). Continue?`
+                    : ""}
                 onConfirm={handleDeleteAssignment}
-                onCancel={() => setConfirmDeleteAssignmentId(null)}
+                onCancel={() => setAssignmentDeletePreview(null)}
+            />
+
+            <ConfirmDialog
+                open={confirmDeleteWeek !== null}
+                message={confirmDeleteWeek
+                    ? `Delete Week ${confirmDeleteWeek.weekNumber}? This removes its sessions and renumbers later weeks.`
+                    : ""}
+                onConfirm={handleDeleteWeek}
+                onCancel={() => setConfirmDeleteWeek(null)}
             />
 
             <AssignSheet

@@ -28,6 +28,11 @@ export async function getOwnedProgram(trainerId: string, programId: string) {
  * the parent of. Every route that takes both a programId and a nested
  * day/session id must call the matching one of these before touching it.
  */
+export async function getOwnedProgramWeek(programId: string, weekId: string) {
+    const week = await db.programWeek.findUnique({ where: { id: weekId } });
+    return week && week.programId === programId ? week : null;
+}
+
 export async function getOwnedProgramDay(programId: string, dayId: string) {
     const day = await db.programDay.findUnique({
         where:   { id: dayId },
