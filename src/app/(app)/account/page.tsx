@@ -531,18 +531,6 @@ export default function AccountPage() {
                     {codeCopied ? "✓ Copied" : "Copy"}
                   </button>
                 </div>
-                <Link href="/clients" style={{ textDecoration: "none" }}>
-                  <div className="w-full rounded-[8px] py-[11px] mb-2 text-center text-[13px] cursor-pointer"
-                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--acc)", color: "var(--acc)" }}>
-                    View My Clients →
-                  </div>
-                </Link>
-                <Link href="/programs" style={{ textDecoration: "none" }}>
-                  <div className="w-full rounded-[8px] py-[11px] text-center text-[13px] cursor-pointer"
-                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--br2)", color: "var(--mu2)" }}>
-                    My Programs →
-                  </div>
-                </Link>
               </>
             ) : (
               <>

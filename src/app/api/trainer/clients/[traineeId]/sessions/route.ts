@@ -50,8 +50,7 @@ export async function GET(
         day.recovery = null;
     }
     if (day && !trainee.shareFeeling) {
-        day.postWorkoutFeeling = null;
-        day.postWorkoutComment = null;
+        day.sessions = day.sessions.map(s => ({ ...s, feeling: null, feelingComment: null }));
     }
 
     return NextResponse.json({ day });

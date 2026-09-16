@@ -77,10 +77,14 @@ Session {
 | Action | `source: self` | `source: trainer` |
 |---|---|---|
 | Edit plan | Trainee ✅ | Trainee ❌ · Trainer ✅ |
-| Delete | Trainee ✅ | Trainee ❌ · Trainer ✅ |
+| Delete | Trainee ✅ | Trainee ✅ · Trainer ✅ |
 | Log / edit result | Trainee ✅ | Trainee ✅ |
 | Copy to another date | Trainee ✅ | Trainee ❌ · Trainer ✅ |
 | Add own notes | Trainee ✅ | Trainee ✅ |
+
+A trainee may delete a trainer-assigned session outright from their own
+calendar — this only removes the `Session` row itself; the trainer's
+`ProgramAssignment` record is unaffected.
 
 A trainer-assigned session is **locked and not forkable**. The trainee cannot copy it into their own editable session — the program belongs to the trainer.
 
@@ -88,7 +92,7 @@ A trainee may always add their **own** sessions alongside assigned ones, on any 
 
 ### UI treatment
 
-Trainer-assigned sessions carry a visible marker (coach/gym name + program name) and hide the Edit Plan / Copy / Delete actions. Log Result stays open.
+Trainer-assigned sessions carry a visible marker (coach/gym name + program name) and hide the Edit Plan / Copy actions. Log Result and Delete stay open.
 
 ---
 

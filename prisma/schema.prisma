@@ -102,6 +102,8 @@ model Session {
   assignment   ProgramAssignment? @relation(fields: [assignmentId], references: [id])
   isRestDay    Boolean  @default(false)
   feedback     SessionFeedback?
+  feeling        String?  // "crushed" | "strong" | "good" | "okay" | "tired"
+  feelingComment String?
 }
 
 model SessionFeedback {

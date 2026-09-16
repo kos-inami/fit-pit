@@ -154,6 +154,7 @@ export async function DELETE(req: NextRequest) {
 
   try {
     await db.set.deleteMany({ where: { sessionId } });
+    await db.sessionFeedback.deleteMany({ where: { sessionId } });
     await db.session.delete({ where: { id: sessionId } });
     return NextResponse.json({ success: true });
   } catch {

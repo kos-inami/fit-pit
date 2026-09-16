@@ -15,17 +15,11 @@ import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry, RecoveryLog } from 
 import { getLocalDateString, getTodayString, calculateExpectedMax } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import SearchSheet from "@/components/program/SearchSheet";
+import { FEELINGS } from "@/lib/feelings";
 
 // ─── helpers ─────────────────────────────────────────────────
 const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
-const FEELINGS = [
-  { value: "crushed", emoji: "🤪", label: "Crushed" },
-  { value: "strong",  emoji: "🤩", label: "Strong"  },
-  { value: "good",    emoji: "😊", label: "Good"    },
-  { value: "okay",    emoji: "😐", label: "Okay"    },
-  { value: "tired",   emoji: "😴", label: "Tired"   },
-];
 
 function getWeekDates(offset: number): string[] {
   const now  = new Date();
@@ -76,7 +70,7 @@ function ProgramPage() {
     days, getDay,
     addSession, editSession, removeSession,
     saveResult, clearResult, clearAINote, setAILoading,
-    saveRecovery, deleteRecovery, saveFeeling,
+    saveRecovery, deleteRecovery,
   } = useProgram();
 
   // ── initialise from URL param ─────────────────────────
@@ -108,9 +102,6 @@ function ProgramPage() {
   const [selectedRecord,    setSelectedRecord]    = useState("");
   const [newMovementName,   setNewMovementName]   = useState("");
   const [savingExpected,    setSavingExpected]    = useState(false);
-
-  const [feelingComment,     setFeelingComment]     = useState("");
-  const [savingFeelingComment, setSavingFeelingComment] = useState(false);
 
   // ── sync URL param changes while mounted ─────────────
   const lastProcessedDateRef = useRef(initialDate);
@@ -172,13 +163,6 @@ function ProgramPage() {
       .catch(() => {});
   }, [expectedMaxTarget, userId]);
 
-  useEffect(() => {
-    const id = setTimeout(() => {
-      setFeelingComment(selectedDay.postWorkoutComment ?? "");
-    }, 0);
-    return () => clearTimeout(id);
-  }, [selectedDate]);
-
   // ── handlers ─────────────────────────────────────────
   const handleAdd = (data: {
     type: SessionType; name: string; desc: string;
@@ -210,6 +194,7 @@ function ProgramPage() {
 
   const handleSaveResult = (data: {
     result?: string; notes?: string; sets?: SetLog[]; resultRounds?: RoundEntry[];
+    feeling?: string | null; feelingComment?: string | null;
   }) => {
     if (!logTarget) return;
     saveResult(selectedDate, logTarget.id, data);
@@ -429,131 +414,6 @@ function ProgramPage() {
           );
         })()}
 
-        {/* ── Post-Workout Feeling ── */}
-        {selectedDay.sessions.length > 0 && selectedDay.sessions.some(s => !s.isRestDay && isDone(s)) && (
-          <div className="rounded-[12px] mb-[0.5rem] p-[0.5rem] overflow-hidden"
-            style={{ background: "var(--s1)", border: "1px solid var(--acc)" }}>
-
-            <div className="p-[0.25rem] flex items-center justify-between">
-              <span className="text-[10px] tracking-[2px] uppercase mb-[0.5rem]"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                Post-Workout Feeling
-              </span>
-              {selectedDay.postWorkoutFeeling && (
-                <button
-                  onClick={() => { saveFeeling(selectedDate, null, null); setFeelingComment(""); }}
-                  className="text-[10px] cursor-pointer"
-                  style={{ background: "none", border: "none", color: "var(--mu)", fontFamily: "'DM Mono', monospace" }}
-                >
-                  ✕ Clear
-                </button>
-              )}
-            </div>
-
-            {selectedDay.postWorkoutFeeling ? (
-              /* ── locked: feeling saved ── */
-              <div>
-                {/* emoji row — read only */}
-                <div className="flex gap-[6px] mb-[0.5rem]">
-                  {FEELINGS.map(f => {
-                    const selected = selectedDay.postWorkoutFeeling === f.value;
-                    return (
-                      <div
-                        key={f.value}
-                        className="flex-1 flex flex-col items-center gap-1 rounded-[10px] py-[8px]"
-                        style={{
-                          background: selected ? "#001a0d" : "var(--s2)",
-                          border:     `1px solid ${selected ? "var(--grn)" : "var(--br)"}`,
-                          opacity:    selected ? 1 : 0.3,
-                        }}
-                      >
-                        <span className="text-[18px]">{f.emoji}</span>
-                        <span className="text-[9px] tracking-[0.5px]"
-                          style={{ fontFamily: "'DM Mono', monospace", color: selected ? "var(--grn)" : "var(--mu)" }}>
-                          {f.label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* comment display or input */}
-                {selectedDay.postWorkoutComment ? (
-                  <div className="rounded-[8px] px-3 py-[10px]"
-                    style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
-                    <div className="text-[9px] tracking-[1.5px] uppercase mb-1"
-                      style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                      Comment
-                    </div>
-                    <p className="text-[12px] italic" style={{ color: "var(--mu2)" }}>
-                      &ldquo;{selectedDay.postWorkoutComment}&rdquo;
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <textarea
-                      rows={3}
-                      placeholder="Add a comment... (optional)"
-                      value={feelingComment}
-                      onChange={e => setFeelingComment(e.target.value)}
-                      className="w-full rounded-[8px] p-[0.5rem] text-[12px] outline-none resize-none"
-                      style={{ background: "var(--s2)", border: "1px solid var(--br)", color: "var(--tx)", fontFamily: "'DM Sans', sans-serif" }}
-                    />
-                    {feelingComment.trim() && (
-                      <button
-                        onClick={async () => {
-                          setSavingFeelingComment(true);
-                          await saveFeeling(selectedDate, selectedDay.postWorkoutFeeling, feelingComment.trim());
-                          setSavingFeelingComment(false);
-                        }}
-                        disabled={savingFeelingComment}
-                        className="w-full mt-2 rounded-[8px] py-[8px] text-[12px] cursor-pointer"
-                        style={{ fontFamily: "'DM Mono', monospace", background: savingFeelingComment ? "var(--s3)" : "var(--grn)", border: "none", color: savingFeelingComment ? "var(--mu)" : "#000" }}
-                      >
-                        {savingFeelingComment ? "Saving..." : "Save Comment"}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* ── prompt: select feeling ── */
-              <div>
-                <div className="flex gap-[6px] mb-[0.5rem]">
-                  {FEELINGS.map(f => (
-                    <button
-                      key={f.value}
-                      onClick={() => saveFeeling(selectedDate, f.value, feelingComment.trim() || null)}
-                      className="flex-1 flex flex-col items-center gap-1 rounded-[10px] py-[8px] cursor-pointer transition-all"
-                      style={{ background: "var(--s2)", border: "1px solid var(--br)" }}
-                    >
-                      <span className="text-[18px]">{f.emoji}</span>
-                      <span className="text-[9px] tracking-[0.5px]"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                        {f.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  rows={3}
-                  placeholder="Add a comment... (optional)"
-                  value={feelingComment}
-                  onChange={e => setFeelingComment(e.target.value)}
-                  className="w-full rounded-[8px] p-[0.5rem] text-[12px] outline-none resize-none"
-                  style={{ background: "var(--s2)", border: "1px solid var(--br)", color: "var(--tx)", fontFamily: "'DM Sans', sans-serif" }}
-                />
-                <div className="text-[10px] mt-1 text-center"
-                  style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                  Tap an emoji to save
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-
-
         {/* empty state */}
         {selectedDay.sessions.length === 0 && (
           <div className="rounded-[12px] py-[1.5rem] text-center"
@@ -618,12 +478,32 @@ function ProgramPage() {
                   </div>
                 )}
 
+                {s.feeling && (
+                  <div className="mx-4 mb-3 flex items-center gap-2">
+                    <span className="text-[16px]">{FEELINGS.find(f => f.value === s.feeling)?.emoji}</span>
+                    <div>
+                      <span className="text-[11px]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+                        {FEELINGS.find(f => f.value === s.feeling)?.label}
+                      </span>
+                      {s.feelingComment && (
+                        <p className="text-[11px] italic" style={{ color: "var(--mu)" }}>&ldquo;{s.feelingComment}&rdquo;</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex border-t" style={{ borderColor: "var(--br)" }}>
-                  {s.source !== "trainer" && (
+                  {s.source !== "trainer" ? (
                     <button onClick={() => setEditTarget(s)}
                       className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
                       style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: "1px solid var(--br)", color: "var(--mu2)" }}>
                       Edit
+                    </button>
+                  ) : (
+                    <button onClick={() => setConfirmId(s.id)}
+                      className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
+                      style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: "1px solid var(--br)", color: "var(--red)" }}>
+                      Delete
                     </button>
                   )}
                   <button onClick={() => openLogSheet(s)}
@@ -891,6 +771,21 @@ function ProgramPage() {
                 </div>
               )}
 
+              {/* how it felt */}
+              {s.feeling && (
+                <div className="mx-4 mb-3 flex items-center gap-2">
+                  <span className="text-[16px]">{FEELINGS.find(f => f.value === s.feeling)?.emoji}</span>
+                  <div>
+                    <span className="text-[11px]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+                      {FEELINGS.find(f => f.value === s.feeling)?.label}
+                    </span>
+                    {s.feelingComment && (
+                      <p className="text-[11px] italic" style={{ color: "var(--mu)" }}>&ldquo;{s.feelingComment}&rdquo;</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* expected max */}
               {meta.useSets && s.sets.length > 0 && (() => {
                 const expected = calculateExpectedMax(s.sets);
@@ -925,13 +820,19 @@ function ProgramPage() {
                 );
               })()}
 
-              {/* action row — trainer-assigned sessions: Log Result only (no Edit Plan / Copy) */}
+              {/* action row — trainer-assigned sessions: Log Result + Delete only (no Edit Plan / Copy) */}
               <div className="flex border-t" style={{ borderColor: `${meta.color}22` }}>
-                {s.source !== "trainer" && (
+                {s.source !== "trainer" ? (
                   <button onClick={() => setEditTarget(s)}
                     className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
                     style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: "var(--mu2)" }}>
                     Edit Plan
+                  </button>
+                ) : (
+                  <button onClick={() => setConfirmId(s.id)}
+                    className="flex-1 py-[10px] text-[10px] tracking-[0.5px] cursor-pointer transition-colors"
+                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderRight: `1px solid ${meta.color}22`, color: "var(--red)" }}>
+                    Delete
                   </button>
                 )}
                 <button onClick={() => openLogSheet(s)}
@@ -986,6 +887,8 @@ function ProgramPage() {
         initialResultRounds={logTarget?.resultRounds.length ? logTarget.resultRounds : logTarget?.rounds ?? []}
         initialResult={logTarget?.result ?? ""}
         initialNotes={logTarget?.notes ?? ""}
+        initialFeeling={logTarget?.feeling ?? null}
+        initialFeelingComment={logTarget?.feelingComment ?? null}
       />
 
       <RecoverySheet

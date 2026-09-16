@@ -8,6 +8,7 @@ import TypeChip from "@/components/session/TypeChip";
 import { SESSION_TYPE_META, SessionType } from "@/types";
 import { RecordEntry, CATEGORY_META, getBestLabel, getLastDate } from "@/lib/records";
 import { getLocalDateString, getTodayString } from "@/lib/utils";
+import { FEELINGS } from "@/lib/feelings";
 
 const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
@@ -40,21 +41,13 @@ interface DBSession {
   rounds: string | null; resultRounds: string | null; planSets: string | null;
   isRestDay: boolean; sets: DBSet[];
   feedback: { body: string; updatedAt: string } | null;
+  feeling: string | null;
+  feelingComment: string | null;
 }
 interface DBDay {
   id: string; date: string; sessions: DBSession[];
   recovery: { energy: number; sore: string; soreOther: string | null; sleepHours: number | null; sleepQuality: number | null; notes: string | null } | null;
-  postWorkoutFeeling: string | null;
-  postWorkoutComment: string | null;
 }
-
-const FEELINGS: Record<string, { emoji: string; label: string }> = {
-  crushed: { emoji: "🤪", label: "Crushed" },
-  strong:  { emoji: "🤩", label: "Strong"  },
-  good:    { emoji: "😊", label: "Good"    },
-  okay:    { emoji: "😐", label: "Okay"    },
-  tired:   { emoji: "😴", label: "Tired"   },
-};
 
 export default function ClientDetailPage({ params }: { params: Promise<{ traineeId: string }> }) {
   const { traineeId } = use(params);
@@ -203,18 +196,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ trainee
             </div>
           </div>
         )}
-        {day?.postWorkoutFeeling && (
-          <div className="rounded-[10px] p-3 mb-3 flex items-center gap-2" style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
-            <span className="text-[18px]">{FEELINGS[day.postWorkoutFeeling]?.emoji}</span>
-            <div>
-              <div className="text-[12px]">{FEELINGS[day.postWorkoutFeeling]?.label}</div>
-              {day.postWorkoutComment && (
-                <div className="text-[11px] italic" style={{ color: "var(--mu)" }}>&ldquo;{day.postWorkoutComment}&rdquo;</div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* sessions */}
         {!day || day.sessions.length === 0 ? (
           <div className="rounded-[12px] py-[1.5rem] text-center mb-5"
@@ -349,6 +330,19 @@ function ReadOnlySessionCard({ session: s, onFeedbackSaved }: { session: DBSessi
           <div className="text-[18px] mb-1" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>🛌 {s.name}</div>
           {s.desc && <div className="text-[13px]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>{s.desc}</div>}
           {s.notes && <div className="text-[12px] italic mt-2" style={{ color: "var(--mu)" }}>&ldquo;{s.notes}&rdquo;</div>}
+          {s.feeling && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[16px]">{FEELINGS.find(f => f.value === s.feeling)?.emoji}</span>
+              <div>
+                <span className="text-[11px]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+                  {FEELINGS.find(f => f.value === s.feeling)?.label}
+                </span>
+                {s.feelingComment && (
+                  <p className="text-[11px] italic" style={{ color: "var(--mu)" }}>&ldquo;{s.feelingComment}&rdquo;</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <FeedbackEditor sessionId={s.id} feedback={s.feedback} onSaved={onFeedbackSaved} />
       </div>
@@ -414,6 +408,20 @@ function ReadOnlySessionCard({ session: s, onFeedbackSaved }: { session: DBSessi
       {s.notes && (
         <div className="px-4 pb-3 text-[12px] italic whitespace-pre-line" style={{ color: "var(--mu2)" }}>
           &ldquo;{s.notes}&rdquo;
+        </div>
+      )}
+
+      {s.feeling && (
+        <div className="px-4 pb-3 flex items-center gap-2">
+          <span className="text-[16px]">{FEELINGS.find(f => f.value === s.feeling)?.emoji}</span>
+          <div>
+            <span className="text-[11px]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
+              {FEELINGS.find(f => f.value === s.feeling)?.label}
+            </span>
+            {s.feelingComment && (
+              <p className="text-[11px] italic" style={{ color: "var(--mu)" }}>&ldquo;{s.feelingComment}&rdquo;</p>
+            )}
+          </div>
         </div>
       )}
 

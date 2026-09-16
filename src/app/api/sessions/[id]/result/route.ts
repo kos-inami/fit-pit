@@ -8,7 +8,7 @@ export async function POST(
 ) {
   const { id: sessionId } = await params;
   const body = await req.json();
-  const { result, notes, rounds, resultRounds } = body;
+  const { result, notes, rounds, resultRounds, feeling, feelingComment } = body;
 
   const authSession = await auth();
   if (!authSession?.user?.id) {
@@ -30,10 +30,12 @@ export async function POST(
     const session = await db.session.update({
       where: { id: sessionId },
       data: {
-        ...(result       !== undefined && { result       }),
-        ...(notes        !== undefined && { notes        }),
-        ...(rounds       !== undefined && { rounds       }),
-        ...(resultRounds !== undefined && { resultRounds }),
+        ...(result         !== undefined && { result         }),
+        ...(notes          !== undefined && { notes          }),
+        ...(rounds         !== undefined && { rounds         }),
+        ...(resultRounds   !== undefined && { resultRounds   }),
+        ...(feeling        !== undefined && { feeling        }),
+        ...(feelingComment !== undefined && { feelingComment }),
       },
       include: { sets: true },
     });

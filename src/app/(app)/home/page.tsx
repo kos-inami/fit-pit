@@ -13,13 +13,6 @@ import { getLocalDateString, getTodayString } from "@/lib/utils";
 
 const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
-const FEELINGS = [
-  { value: "crushed", emoji: "🤪", label: "Crushed" },
-  { value: "strong",  emoji: "🤩", label: "Strong"  },
-  { value: "good",    emoji: "😊", label: "Good"    },
-  { value: "okay",    emoji: "😐", label: "Okay"    },
-  { value: "tired",   emoji: "😴", label: "Tired"   },
-];
 
 function getThisWeekDates(): string[] {
   const now  = new Date();
@@ -47,11 +40,9 @@ function isSessionComplete(s: {
 
 export default function HomePage() {
   const router = useRouter();
-  const { getDay, days, saveRecovery, saveFeeling } = useProgram();
+  const { getDay, days, saveRecovery } = useProgram();
 
   const [recoveryOpen,   setRecoveryOpen]   = useState(false);
-  const [feelingComment, setFeelingComment] = useState("");
-  const [savingComment,  setSavingComment]  = useState(false);
 
   const weekDates = getThisWeekDates();
   const todayDay  = getDay(TODAY_STR);
@@ -89,13 +80,6 @@ export default function HomePage() {
   const handleDayClick  = (date: string) => router.push(`/program?date=${date}`);
   const handleRecovery  = (data: RecoveryLog) => { saveRecovery(TODAY_STR, data); setRecoveryOpen(false); };
 
-  const handleSaveComment = async () => {
-    if (!feelingComment.trim()) return;
-    setSavingComment(true);
-    await saveFeeling(TODAY_STR, todayDay.postWorkoutFeeling, feelingComment.trim());
-    setSavingComment(false);
-  };
-
   // suppress unused
   void Object.values(days);
 
@@ -126,125 +110,6 @@ export default function HomePage() {
                   All Done Today!
                 </div>
               </div>
-
-              {todayDay.postWorkoutFeeling ? (
-                /* saved state */
-                <div className="px-[1rem] pt-[0.5rem] pb-[0.5rem]">
-                  {/* feeling badge */}
-                  <div className="flex justify-center items-center relative mb-3">
-                    <div className="text-center">
-                      <span className="text-[28px]">
-                        {FEELINGS.find(f => f.value === todayDay.postWorkoutFeeling)?.emoji}
-                      </span>
-                      <div className="text-[14px] mt-1"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}>
-                        {FEELINGS.find(f => f.value === todayDay.postWorkoutFeeling)?.label}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => { saveFeeling(TODAY_STR, null, null); setFeelingComment(""); }}
-                      className="text-[10px] cursor-pointer"
-                      style={{
-                        background: "none", border: "none", color: "var(--mu)",
-                        fontFamily: "'DM Mono', monospace",
-                        position: "absolute", right: "0", top: "0",
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  {/* comment display or input */}
-                  {todayDay.postWorkoutComment ? (
-                    <div className="rounded-[8px] p-[0.5rem] text-left mt-[0.5rem]"
-                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #003322" }}>
-                      <div className="text-[9px] tracking-[1.5px] uppercase mb-[0.25rem]"
-                        style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                        Comment
-                      </div>
-                      <p className="text-[12px]" style={{ color: "#b8d4c8" }}>
-                        {todayDay.postWorkoutComment}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mt-[0.5rem]">
-                      <textarea
-                        rows={3}
-                        placeholder="Add a comment... (optional)"
-                        value={feelingComment}
-                        onChange={e => setFeelingComment(e.target.value)}
-                        className="w-full rounded-[8px] p-[0.5rem] text-[12px] outline-none resize-none"
-                        style={{
-                          background: "rgba(255,255,255,0.05)",
-                          border:     "1px solid #003322",
-                          color:      "#b8d4c8",
-                          fontFamily: "'DM Sans', sans-serif",
-                        }}
-                      />
-                      {feelingComment.trim() && (
-                        <button
-                          onClick={handleSaveComment}
-                          disabled={savingComment}
-                          className="w-full mt-2 rounded-[8px] py-[8px] text-[12px] cursor-pointer"
-                          style={{
-                            fontFamily: "'DM Mono', monospace",
-                            background: savingComment ? "var(--s3)" : "var(--grn)",
-                            border:     "none",
-                            color:      savingComment ? "var(--mu)" : "#000",
-                          }}
-                        >
-                          {savingComment ? "Saving..." : "Save Comment"}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* prompt — select feeling + optional comment */
-                <div className="px-[1rem] pt-[1rem]">
-                  <div className="text-[11px] tracking-[1px] uppercase mb-[0.5rem] text-center"
-                    style={{ fontFamily: "'DM Mono', monospace", color: "#b8d4c8" }}>
-                    How did you feel?
-                  </div>
-
-                  {/* emoji row */}
-                  <div className="flex gap-[6px] mb-[0.5rem]">
-                    {FEELINGS.map(f => (
-                      <button
-                        key={f.value}
-                        onClick={() => saveFeeling(TODAY_STR, f.value, feelingComment.trim() || null)}
-                        className="flex-1 flex flex-col items-center gap-1 rounded-[10px] py-[10px] cursor-pointer transition-all"
-                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #003322" }}
-                      >
-                        <span className="text-[20px]">{f.emoji}</span>
-                        <span className="text-[9px] tracking-[0.5px]"
-                          style={{ fontFamily: "'DM Mono', monospace", color: "#b8d4c8" }}>
-                          {f.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* optional comment */}
-                  <textarea
-                    rows={3}
-                    placeholder="Add a comment... (optional)"
-                    value={feelingComment}
-                    onChange={e => setFeelingComment(e.target.value)}
-                    className="w-full rounded-[8px] p-[0.5rem] text-[12px] outline-none resize-none"
-                    style={{
-                      background: "rgba(255,255,255,0.05)",
-                      border:     "1px solid #003322",
-                      color:      "#b8d4c8",
-                      fontFamily: "'DM Sans', sans-serif",
-                    }}
-                  />
-                  {/* <div className="text-[10px] mt-1 text-center"
-                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                    Tap an emoji to save
-                  </div> */}
-                </div>
-              )}
             </div>
           )}
 

@@ -8,33 +8,85 @@ import SetLogger from "@/components/log/SetLogger";
 import RoundLogger from "@/components/log/RoundLogger";
 import TypeChip from "@/components/session/TypeChip";
 import { SESSION_TYPE_META, SessionType, SetLog, RoundEntry } from "@/types";
+import { FEELINGS } from "@/lib/feelings";
 
 interface LogResultSheetProps {
   open:                 boolean;
   onClose:              () => void;
   session:              { id: string; name: string; type: SessionType; aiNote?: string | null; isRestDay: boolean } | null;
   onSave:               (data: {
-    result?:       string;
-    notes?:        string;
-    sets?:         SetLog[];
-    resultRounds?: RoundEntry[];
+    result?:         string;
+    notes?:          string;
+    sets?:           SetLog[];
+    resultRounds?:   RoundEntry[];
+    feeling?:        string | null;
+    feelingComment?: string | null;
   }) => void;
   onDelete?:            () => void;
   initialSets?:         SetLog[];
   initialResultRounds?: RoundEntry[];
   initialResult?:       string;
   initialNotes?:        string;
+  initialFeeling?:        string | null;
+  initialFeelingComment?: string | null;
+}
+
+function FeelingSection({ feeling, setFeeling, comment, setComment }: {
+  feeling: string | null; setFeeling: (v: string | null) => void;
+  comment: string; setComment: (v: string) => void;
+}) {
+  return (
+    <div className="mb-4">
+      <Label>How did it feel?</Label>
+      <div className="flex gap-[6px] mb-2">
+        {FEELINGS.map(f => {
+          const selected = feeling === f.value;
+          return (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setFeeling(selected ? null : f.value)}
+              className="flex-1 flex flex-col items-center gap-1 rounded-[10px] py-[8px] cursor-pointer transition-all"
+              style={{
+                background: selected ? "#001a0d" : "var(--s2)",
+                border:     `1px solid ${selected ? "var(--grn)" : "var(--br)"}`,
+              }}
+            >
+              <span className="text-[18px]">{f.emoji}</span>
+              <span className="text-[9px] tracking-[0.5px]"
+                style={{ fontFamily: "'DM Mono', monospace", color: selected ? "var(--grn)" : "var(--mu)" }}>
+                {f.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {feeling && (
+        <textarea
+          rows={2}
+          placeholder="Add a comment... (optional)"
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          className="w-full rounded-[8px] p-[0.5rem] text-[12px] outline-none resize-none"
+          style={{ background: "var(--s2)", border: "1px solid var(--br)", color: "var(--tx)", fontFamily: "'DM Sans', sans-serif" }}
+        />
+      )}
+    </div>
+  );
 }
 
 export default function LogResultSheet({
   open, onClose, session, onSave, onDelete,
   initialSets = [], initialResultRounds = [],
   initialResult = "", initialNotes = "",
+  initialFeeling = null, initialFeelingComment = null,
 }: LogResultSheetProps) {
   const [result, setResult] = useState(initialResult);
   const [notes,  setNotes]  = useState(initialNotes);
   const [sets,   setSets]   = useState<SetLog[]>(initialSets);
   const [rounds, setRounds] = useState<RoundEntry[]>(initialResultRounds);
+  const [feeling,        setFeeling]        = useState<string | null>(initialFeeling);
+  const [feelingComment, setFeelingComment] = useState(initialFeelingComment ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // sync state when props change (handles reopen of same session)
@@ -42,9 +94,11 @@ export default function LogResultSheet({
     const id = setTimeout(() => {
       setResult(initialResult);
       setNotes(initialNotes);
+      setFeeling(initialFeeling);
+      setFeelingComment(initialFeelingComment ?? "");
     }, 0);
     return () => clearTimeout(id);
-  }, [initialResult, initialNotes]);
+  }, [initialResult, initialNotes, initialFeeling, initialFeelingComment]);
 
   if (!session) return null;
 
@@ -59,16 +113,17 @@ export default function LogResultSheet({
     result.trim().length > 0;
 
   const handleSave = () => {
-    if (isRestDay)       onSave({ notes });
-    else if (useSets)    onSave({ result: result.trim(), notes, sets });
-    else if (useRounds)  onSave({ result: result.trim(), notes, resultRounds: rounds });
-    else                 onSave({ result: result.trim(), notes });
-    setResult(""); setNotes(""); setSets([]); setRounds([]);
+    const feelingPayload = { feeling, feelingComment: feeling ? (feelingComment.trim() || null) : null };
+    if (isRestDay)       onSave({ notes, ...feelingPayload });
+    else if (useSets)    onSave({ result: result.trim(), notes, sets, ...feelingPayload });
+    else if (useRounds)  onSave({ result: result.trim(), notes, resultRounds: rounds, ...feelingPayload });
+    else                 onSave({ result: result.trim(), notes, ...feelingPayload });
+    setResult(""); setNotes(""); setSets([]); setRounds([]); setFeeling(null); setFeelingComment("");
     onClose();
   };
 
   const handleClose = () => {
-    setResult(""); setNotes(""); setSets([]); setRounds([]);
+    setResult(""); setNotes(""); setSets([]); setRounds([]); setFeeling(null); setFeelingComment("");
     setConfirmDelete(false);
     onClose();
   };
@@ -89,6 +144,8 @@ export default function LogResultSheet({
           value={notes}
           onChange={e => setNotes(e.target.value)}
         />
+
+        <FeelingSection feeling={feeling} setFeeling={setFeeling} comment={feelingComment} setComment={setFeelingComment} />
 
         <Button onClick={handleSave} disabled={!canSave}>Save Note</Button>
         <div className="h-2" />
@@ -173,6 +230,8 @@ export default function LogResultSheet({
         value={notes}
         onChange={e => setNotes(e.target.value)}
       />
+
+      <FeelingSection feeling={feeling} setFeeling={setFeeling} comment={feelingComment} setComment={setFeelingComment} />
 
       <Button onClick={handleSave} disabled={!canSave}>Save Result</Button>
       <div className="h-2" />
