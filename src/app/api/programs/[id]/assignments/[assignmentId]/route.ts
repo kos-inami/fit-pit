@@ -81,3 +81,42 @@ export async function PATCH(
 
     return NextResponse.json({ assignment: updated, deletedSessions: toDeleteIds.length });
 }
+
+export async function DELETE(
+    _req: NextRequest,
+    { params }: { params: Promise<{ id: string; assignmentId: string }> }
+) {
+    const session = await auth();
+    const trainerId = session?.user?.id;
+    if (!trainerId) {
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { id: programId, assignmentId } = await params;
+    const assignment = await db.programAssignment.findUnique({
+        where:   { id: assignmentId },
+        include: { program: true },
+    });
+    if (!assignment || assignment.programId !== programId) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if (assignment.program.trainerId !== trainerId) {
+        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+    if (assignment.status === "active") {
+        return NextResponse.json({ error: "Cancel or complete it first" }, { status: 409 });
+    }
+
+    const sessionCount = await db.session.count({ where: { assignmentId } });
+    if (sessionCount > 0) {
+        return NextResponse.json({ error: "Sessions still reference this assignment" }, { status: 409 });
+    }
+
+    const laterRunCount = await db.programAssignment.count({ where: { previousAssignmentId: assignmentId } });
+    if (laterRunCount > 0) {
+        return NextResponse.json({ error: "A later re-run is linked to this as its previous assignment" }, { status: 409 });
+    }
+
+    await db.programAssignment.delete({ where: { id: assignmentId } });
+    return NextResponse.json({ success: true });
+}

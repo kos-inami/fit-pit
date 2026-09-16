@@ -84,3 +84,37 @@ export async function PATCH(
 
     return NextResponse.json({ program });
 }
+
+export async function DELETE(
+    _req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await auth();
+    const trainerId = session?.user?.id;
+    if (!trainerId) {
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const owned = await getOwnedProgram(trainerId, id);
+    if (!owned) {
+        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+
+    const assignmentCount = await db.programAssignment.count({ where: { programId: id } });
+    if (assignmentCount > 0) {
+        return NextResponse.json(
+            { error: "Cannot delete a program that has been assigned or enrolled in — archive it instead." },
+            { status: 409 }
+        );
+    }
+
+    await db.$transaction(async (tx) => {
+        await tx.programSession.deleteMany({ where: { day: { week: { programId: id } } } });
+        await tx.programDay.deleteMany({ where: { week: { programId: id } } });
+        await tx.programWeek.deleteMany({ where: { programId: id } });
+        await tx.program.delete({ where: { id } });
+    });
+
+    return NextResponse.json({ success: true });
+}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import TopNav from "@/components/ui/TopNav";
 import { Input, Textarea } from "@/components/ui/Input";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -42,6 +43,7 @@ function parseSession(s: PSession): ProgramSessionData & { id: string } {
 
 export default function ProgramBuilderPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: programId } = use(params);
+    const router = useRouter();
 
     const [program,     setProgram]     = useState<ProgramDetail | null>(null);
     const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
@@ -53,6 +55,8 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
     const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
     const [sessionSheet, setSessionSheet] = useState<{ dayId: string; edit: (ProgramSessionData & { id: string }) | null } | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [confirmDeleteProgram, setConfirmDeleteProgram] = useState(false);
+    const [confirmDeleteAssignmentId, setConfirmDeleteAssignmentId] = useState<string | null>(null);
     const [assignOpen, setAssignOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [flash, setFlash] = useState("");
@@ -192,6 +196,34 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
         setBusy(false);
     };
 
+    const handleDeleteProgram = async () => {
+        setBusy(true);
+        const res  = await fetch(`/api/programs/${programId}`, { method: "DELETE" });
+        const json = await res.json();
+        setConfirmDeleteProgram(false);
+        setBusy(false);
+        if (!res.ok) {
+            showFlash(json.error ?? "Failed to delete program");
+            return;
+        }
+        router.push("/programs");
+    };
+
+    const handleDeleteAssignment = async () => {
+        if (!confirmDeleteAssignmentId) return;
+        setBusy(true);
+        const res  = await fetch(`/api/programs/${programId}/assignments/${confirmDeleteAssignmentId}`, { method: "DELETE" });
+        const json = await res.json();
+        setConfirmDeleteAssignmentId(null);
+        setBusy(false);
+        if (!res.ok) {
+            showFlash(json.error ?? "Failed to delete assignment");
+            return;
+        }
+        await load();
+        showFlash("Assignment deleted");
+    };
+
     return (
         <>
             <TopNav title="PROGRAM BUILDER" />
@@ -240,6 +272,10 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                                 {program.status === "published" && (
                                     <button onClick={() => setAssignOpen(true)} disabled={busy} className="rounded-[8px] px-3 py-[8px] text-[11px] cursor-pointer"
                                         style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--acc)", color: "var(--acc)" }}>Assign →</button>
+                                )}
+                                {assignments.length === 0 && (
+                                    <button onClick={() => setConfirmDeleteProgram(true)} disabled={busy} className="rounded-[8px] px-3 py-[8px] text-[11px] cursor-pointer"
+                                        style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--red)", color: "var(--red)" }}>Delete</button>
                                 )}
                             </div>
                         </>
@@ -369,7 +405,7 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                                             </span>
                                         </Link>
                                     )}
-                                    {a.status === "active" && (
+                                    {a.status === "active" ? (
                                         <>
                                             <button onClick={() => handleAssignmentAction(a.id, "complete")}
                                                 className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
@@ -382,6 +418,12 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                                                 Cancel
                                             </button>
                                         </>
+                                    ) : (
+                                        <button onClick={() => setConfirmDeleteAssignmentId(a.id)}
+                                            className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
+                                            style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--red)", color: "var(--red)" }}>
+                                            Delete
+                                        </button>
                                     )}
                                 </div>
                             </div>
@@ -405,6 +447,20 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                 message="Remove this session from the program?"
                 onConfirm={handleDeleteSession}
                 onCancel={() => setConfirmDeleteId(null)}
+            />
+
+            <ConfirmDialog
+                open={confirmDeleteProgram}
+                message="Permanently delete this program? This cannot be undone."
+                onConfirm={handleDeleteProgram}
+                onCancel={() => setConfirmDeleteProgram(false)}
+            />
+
+            <ConfirmDialog
+                open={confirmDeleteAssignmentId !== null}
+                message="Permanently delete this assignment record? This cannot be undone."
+                onConfirm={handleDeleteAssignment}
+                onCancel={() => setConfirmDeleteAssignmentId(null)}
             />
 
             <AssignSheet
