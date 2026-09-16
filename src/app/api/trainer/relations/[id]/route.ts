@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { notify } from "@/lib/notify";
 
 export async function PATCH(
     req: NextRequest,
@@ -55,6 +56,7 @@ export async function PATCH(
             where: { id },
             data:  { status: "active", startedAt: new Date() },
         });
+        await notify(relation.traineeId, "connection_accepted", relation.id);
         return NextResponse.json({ relation: updated });
     }
 

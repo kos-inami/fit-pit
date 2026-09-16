@@ -56,7 +56,6 @@ export default function HomePage() {
   const weekDates = getThisWeekDates();
   const todayDay  = getDay(TODAY_STR);
   const sessions  = todayDay.sessions;
-  const lastAI    = todayDay.aiSuggestion;
 
   const workoutSessions = sessions.filter(s => !s.isRestDay);
   const dayComplete = sessions.length > 0 && workoutSessions.every(
@@ -348,39 +347,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* AI coach note */}
-        {lastAI && (
-          <>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-[10px] tracking-[2px] uppercase"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                AI Coach Note
-              </div>
-            </div>
-            <div className="rounded-[12px] p-4 mb-5"
-              style={{ background: "#001a0d", border: "1px solid #003322" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-[7px] h-[7px] rounded-full flex-shrink-0"
-                  style={{ background: "var(--grn)", animation: "pulse 2s infinite" }} />
-                <span className="text-[9px] tracking-[2px] uppercase"
-                  style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}>
-                  AI Coach · Today
-                </span>
-              </div>
-              <p className="text-[13px] leading-relaxed mb-3" style={{ color: "#b8d4c8" }}>
-                {lastAI.summary}
-              </p>
-              <div className="flex flex-wrap gap-[5px]">
-                {lastAI.chips.map(c => (
-                  <span key={c} className="text-[10px] px-2 py-[3px] rounded-full"
-                    style={{ fontFamily: "'DM Mono', monospace", background: "#002216", border: "1px solid #003322", color: "var(--grn)" }}>
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
 
       </main>
 

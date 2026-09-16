@@ -75,7 +75,7 @@ function ProgramPage() {
   const {
     days, getDay,
     addSession, editSession, removeSession,
-    saveResult, clearResult, setAINote, clearAINote, setAILoading,
+    saveResult, clearResult, clearAINote, setAILoading,
     saveRecovery, deleteRecovery, saveFeeling,
   } = useProgram();
 
@@ -96,7 +96,6 @@ function ProgramPage() {
   const [copyDate,      setCopyDate]      = useState(TODAY_STR);
   const [logCounter,    setLogCounter]    = useState(0);
   const [recoveryAccordion, setRecoveryAccordion] = useState(false);
-  const [dayAiError,    setDayAiError]    = useState("");
   const [searchOpen,    setSearchOpen]    = useState(false);
 
   const [expectedMaxTarget, setExpectedMaxTarget] = useState<{
@@ -109,10 +108,6 @@ function ProgramPage() {
   const [selectedRecord,    setSelectedRecord]    = useState("");
   const [newMovementName,   setNewMovementName]   = useState("");
   const [savingExpected,    setSavingExpected]    = useState(false);
-
-  const [aiEnabled,           setAiEnabled]          = useState(false);
-  const [dayAiLoading,        setDayAiLoading]       = useState(false);
-  const [showRecoveryPrompt,  setShowRecoveryPrompt] = useState(false);
 
   const [feelingComment,     setFeelingComment]     = useState("");
   const [savingFeelingComment, setSavingFeelingComment] = useState(false);
@@ -145,22 +140,11 @@ function ProgramPage() {
   }));
 
   const datesWithSessions = Object.keys(days).filter(d => days[d].sessions.length > 0);
-  const allHaveNotes      = selectedDay.sessions.length > 0 &&
-    selectedDay.sessions.every(s => s.aiNote);
 
   const showFlash = (msg: string) => {
     setFlash(msg);
     setTimeout(() => setFlash(null), 1800);
   };
-
-  // ── load AI enabled ───────────────────────────────────
-  useEffect(() => {
-    if (!userId) return;
-    fetch(`/api/profile?userId=${userId}`)
-      .then(r => r.json())
-      .then(json => setAiEnabled(!!json.user?.geminiKey))
-      .catch(() => {});
-  }, [userId]);
 
   // ── load WL records for expected max sheet ────────────
   useEffect(() => {
@@ -265,48 +249,6 @@ function ProgramPage() {
   const openLogSheet = (s: ProgSession) => {
     setLogCounter(c => c + 1);
     setLogTarget(s);
-  };
-
-  const runDayAI = async () => {
-    if (!userId) return;
-    setDayAiLoading(true);
-    setShowRecoveryPrompt(false);
-    setDayAiError("");
-    try {
-      const res  = await fetch("/api/ai/suggest", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          userId,
-          recovery: selectedDay.recovery,
-          sessions: selectedDay.sessions.map((s, i) => ({
-            index: i, id: s.id, type: s.type, name: s.name, desc: s.desc,
-            planSets: s.planSets, rounds: s.rounds, sets: s.sets,
-            resultRounds: s.resultRounds, result: s.result, notes: s.notes,
-          })),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setDayAiError(json.error ?? "AI request failed");
-        setDayAiLoading(false);
-        return;
-      }
-      if (json.suggestion?.perSession) {
-        selectedDay.sessions.forEach((s, i) => {
-          const note = json.suggestion.perSession[String(i)];
-          if (note) setAINote(selectedDate, s.id, note);
-        });
-      }
-    } catch {
-      setDayAiError("Could not reach AI. Check your connection.");
-    }
-    setDayAiLoading(false);
-  };
-
-  const handleDayAI = () => {
-    if (!selectedDay.recovery) { setShowRecoveryPrompt(true); return; }
-    runDayAI();
   };
 
   const handleSaveExpectedMax = async () => {
@@ -487,58 +429,6 @@ function ProgramPage() {
           );
         })()}
 
-        {/* daily AI */}
-        {aiEnabled && selectedDay.sessions.length > 0 && (
-          <div className="mb-[0.5rem]">
-            {showRecoveryPrompt ? (
-              <div className="rounded-[10px] p-[0.5rem]"
-                style={{ background: "#001a0d", border: "1px solid #003322" }}>
-                <div className="flex items-center gap-2 mb-[0.5rem]">
-                  <span className="w-[6px] h-[6px] rounded-full flex-shrink-0 mr-[0.5rem]"
-                    style={{ background: "var(--grn)" }} />
-                  <span className="text-[10px] tracking-[2px] uppercase"
-                    style={{ fontFamily: "'DM Mono', monospace", color: "var(--grn)" }}>
-                    AI Suggestion
-                  </span>
-                </div>
-                <p className="text-[12px] mb-[0.5rem] leading-relaxed" style={{ color: "#b8d4c8" }}>
-                  Log today&apos;s recovery first for more accurate coaching advice.
-                </p>
-                <div className="flex gap-[0.5rem]">
-                  <button onClick={runDayAI}
-                    className="flex-1 rounded-[8px] py-[9px] text-[12px] cursor-pointer"
-                    style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid #003322", color: "#b8d4c8" }}>
-                    Skip & Continue
-                  </button>
-                  <button onClick={() => { setRecoveryOpen(true); setShowRecoveryPrompt(false); }}
-                    className="flex-1 rounded-[8px] py-[9px] text-[12px] cursor-pointer"
-                    style={{ fontFamily: "'DM Mono', monospace", background: "var(--grn)", border: "none", color: "#000" }}>
-                    Log Recovery
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={handleDayAI} disabled={dayAiLoading}
-                className="w-full rounded-[9px] py-[11px] text-[14px] tracking-[1.5px] cursor-pointer"
-                style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  background: dayAiLoading ? "var(--s2)" : "#001a0d",
-                  border:     `1px solid ${dayAiLoading ? "var(--br)" : "#003322"}`,
-                  color:      dayAiLoading ? "var(--mu)" : "var(--grn)",
-                }}>
-                {dayAiLoading ? "Getting AI Coaching..." : allHaveNotes ? "↻ Refresh AI Coaching" : "⚡ Get AI Coaching for Today"}
-              </button>
-            )}
-          </div>
-        )}
-
-        {dayAiError && (
-          <div className="mt-2 px-3 py-2 rounded-[8px] text-[11px] mb-[0.5rem]"
-            style={{ fontFamily: "'DM Mono', monospace", background: "#1a0000", border: "1px solid var(--red)", color: "var(--red)" }}>
-            {dayAiError}
-          </div>
-        )}
-
         {/* ── Post-Workout Feeling ── */}
         {selectedDay.sessions.length > 0 && selectedDay.sessions.some(s => !s.isRestDay && isDone(s)) && (
           <div className="rounded-[12px] mb-[0.5rem] p-[0.5rem] overflow-hidden"
@@ -713,6 +603,17 @@ function ProgramPage() {
                   <div className="mx-4 mb-3 p-[0.5rem]">
                     <p className="text-[12px] italic whitespace-pre-line" style={{ color: "var(--mu2)" }}>
                       &ldquo;{s.notes}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+                {s.feedback && (
+                  <div className="mx-4 mb-3 p-[0.5rem] rounded-[8px]" style={{ background: "var(--s2)", border: "1px solid var(--acc)" }}>
+                    <div className="text-[9px] tracking-[1px] uppercase mb-1" style={{ fontFamily: "'DM Mono', monospace", color: "var(--acc)" }}>
+                      🎯 Coach
+                    </div>
+                    <p className="text-[12px] whitespace-pre-line" style={{ color: "var(--tx)" }}>
+                      {s.feedback.body}
                     </p>
                   </div>
                 )}
@@ -974,6 +875,18 @@ function ProgramPage() {
                 <div className="mx-4 mb-3 p-[0.5rem]">
                   <p className="text-[12px] italic whitespace-pre-line" style={{ color: "var(--mu2)" }}>
                     &ldquo;{s.notes}&rdquo;
+                  </p>
+                </div>
+              )}
+
+              {/* coach feedback */}
+              {s.feedback && (
+                <div className="mx-4 mb-3 p-[0.5rem] rounded-[8px]" style={{ background: "var(--s2)", border: "1px solid var(--acc)" }}>
+                  <div className="text-[9px] tracking-[1px] uppercase mb-1" style={{ fontFamily: "'DM Mono', monospace", color: "var(--acc)" }}>
+                    🎯 Coach
+                  </div>
+                  <p className="text-[12px] whitespace-pre-line" style={{ color: "var(--tx)" }}>
+                    {s.feedback.body}
                   </p>
                 </div>
               )}

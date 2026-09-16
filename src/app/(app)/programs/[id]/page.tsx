@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, use } from "react";
+import Link from "next/link";
 import TopNav from "@/components/ui/TopNav";
 import { Input, Textarea } from "@/components/ui/Input";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -23,6 +24,7 @@ interface ProgramDetail {
 }
 interface AssignmentRow {
     id: string; status: string; startDate: string; startWeek: number; endWeek: number | null;
+    previousAssignmentId: string | null;
     trainee: { id: string; name: string };
 }
 
@@ -358,20 +360,30 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                                         {a.status} · from {a.startDate}
                                     </div>
                                 </div>
-                                {a.status === "active" && (
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleAssignmentAction(a.id, "complete")}
-                                            className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
-                                            style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--grn)", color: "var(--grn)" }}>
-                                            Complete
-                                        </button>
-                                        <button onClick={() => handleAssignmentAction(a.id, "cancel")}
-                                            className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
-                                            style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--red)", color: "var(--red)" }}>
-                                            Cancel
-                                        </button>
-                                    </div>
-                                )}
+                                <div className="flex gap-2 items-center">
+                                    {a.previousAssignmentId && (
+                                        <Link href={`/programs/${programId}/compare/${a.id}`} style={{ textDecoration: "none" }}>
+                                            <span className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
+                                                style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--acc)", color: "var(--acc)" }}>
+                                                Compare →
+                                            </span>
+                                        </Link>
+                                    )}
+                                    {a.status === "active" && (
+                                        <>
+                                            <button onClick={() => handleAssignmentAction(a.id, "complete")}
+                                                className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
+                                                style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--grn)", color: "var(--grn)" }}>
+                                                Complete
+                                            </button>
+                                            <button onClick={() => handleAssignmentAction(a.id, "cancel")}
+                                                className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
+                                                style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--red)", color: "var(--red)" }}>
+                                                Cancel
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>

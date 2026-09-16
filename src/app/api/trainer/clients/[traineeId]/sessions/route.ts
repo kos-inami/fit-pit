@@ -38,6 +38,7 @@ export async function GET(
                 include: {
                     sets: { orderBy: { setNumber: "asc" } },
                     assignment: { select: { program: { select: { name: true } } } },
+                    feedback: { select: { body: true, updatedAt: true } },
                 },
                 orderBy: [{ order: "asc" }, { assignment: { assignedAt: "asc" } }],
             },

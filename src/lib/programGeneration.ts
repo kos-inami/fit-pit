@@ -210,6 +210,12 @@ export async function assignProgramToTrainee(params: AssignParams): Promise<Assi
             },
         });
 
+        if (assignedById !== traineeId) {
+            await tx.notification.create({
+                data: { userId: traineeId, type: "assignment", refId: assignment.id },
+            });
+        }
+
         const maxRecordMap = await buildMaxRecordMap(tx, traineeId);
         const generatedCount = await generateForWeekRange({
             tx,

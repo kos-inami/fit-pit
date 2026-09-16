@@ -129,3 +129,6 @@ export type RoundEntry = {
 export type ResultRounds = {
     rounds: RoundEntry[];
 };
+
+// ─── NOTIFICATIONS ───────────────────────────────────────────
+export type NotificationType = "feedback" | "assignment" | "connection_request" | "connection_accepted";

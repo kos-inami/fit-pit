@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function POST(
@@ -8,6 +9,22 @@ export async function POST(
   const { id: sessionId } = await params;
   const body = await req.json();
   const { result, notes, rounds, resultRounds } = body;
+
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const target = await db.session.findUnique({
+    where:   { id: sessionId },
+    include: { day: { select: { userId: true } } },
+  });
+  if (!target) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (target.day.userId !== authSession.user.id) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
 
   try {
     const session = await db.session.update({
@@ -21,7 +38,7 @@ export async function POST(
       include: { sets: true },
     });
     return NextResponse.json({ session });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Failed to save result" }, { status: 500 });
   }
 }

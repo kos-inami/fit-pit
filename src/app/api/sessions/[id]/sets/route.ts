@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+
+async function verifySessionOwner(sessionId: string, callerId: string) {
+  const target = await db.session.findUnique({
+    where:   { id: sessionId },
+    include: { day: { select: { userId: true } } },
+  });
+  if (!target) return { ok: false as const, status: 404, error: "Not found" };
+  if (target.day.userId !== callerId) return { ok: false as const, status: 403, error: "Not authorized" };
+  return { ok: true as const };
+}
 
 // GET /api/sessions/[id]/sets
 export async function GET(
@@ -7,6 +18,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: sessionId } = await params;
+
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  const check = await verifySessionOwner(sessionId, authSession.user.id);
+  if (!check.ok) {
+    return NextResponse.json({ error: check.error }, { status: check.status });
+  }
 
   try {
     const sets = await db.set.findMany({
@@ -30,6 +50,15 @@ export async function POST(
 
   if (!sets || !Array.isArray(sets)) {
     return NextResponse.json({ error: "sets array required" }, { status: 400 });
+  }
+
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  const check = await verifySessionOwner(sessionId, authSession.user.id);
+  if (!check.ok) {
+    return NextResponse.json({ error: check.error }, { status: check.status });
   }
 
   try {
@@ -68,6 +97,22 @@ export async function DELETE(
 
   if (!setId) {
     return NextResponse.json({ error: "setId required" }, { status: 400 });
+  }
+
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const target = await db.set.findUnique({
+    where:   { id: setId },
+    include: { session: { select: { day: { select: { userId: true } } } } },
+  });
+  if (!target) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (target.session.day.userId !== authSession.user.id) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   try {

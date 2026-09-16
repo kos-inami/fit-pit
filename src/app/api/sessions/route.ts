@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getTodayString } from "@/lib/utils";
 
@@ -11,6 +12,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "userId required" }, { status: 400 });
   }
 
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (authSession.user.id !== userId) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
   try {
     const day = await db.day.findUnique({
       where: { userId_date: { userId, date } },
@@ -19,6 +28,7 @@ export async function GET(req: NextRequest) {
           include: {
             sets: { orderBy: { setNumber: "asc" } },
             assignment: { select: { program: { select: { name: true } } } },
+            feedback: { select: { body: true, updatedAt: true } },
           },
           orderBy: [{ order: "asc" }, { assignment: { assignedAt: "asc" } }],
         },
@@ -38,6 +48,14 @@ export async function POST(req: NextRequest) {
 
   if (!userId || (!isRestDay && (!type || !name))) {
     return NextResponse.json({ error: "userId, type, name required" }, { status: 400 });
+  }
+
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (authSession.user.id !== userId) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   const sessionDate = date || getTodayString();
@@ -77,6 +95,22 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "sessionId required" }, { status: 400 });
   }
 
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const target = await db.session.findUnique({
+    where:   { id: sessionId },
+    include: { day: { select: { userId: true } } },
+  });
+  if (!target) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (target.day.userId !== authSession.user.id) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
   try {
     const session = await db.session.update({
       where: { id: sessionId },
@@ -100,6 +134,22 @@ export async function DELETE(req: NextRequest) {
 
   if (!sessionId) {
     return NextResponse.json({ error: "sessionId required" }, { status: 400 });
+  }
+
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const target = await db.session.findUnique({
+    where:   { id: sessionId },
+    include: { day: { select: { userId: true } } },
+  });
+  if (!target) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (target.day.userId !== authSession.user.id) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   try {

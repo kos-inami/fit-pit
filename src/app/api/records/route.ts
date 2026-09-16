@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getTodayString } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -9,6 +9,14 @@ export async function GET(req: NextRequest) {
 
   if (!userId) {
     return NextResponse.json({ error: "userId required" }, { status: 400 });
+  }
+
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (authSession.user.id !== userId) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   try {
@@ -40,6 +48,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (authSession.user.id !== userId) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
   try {
     const record = await db.maxRecord.create({
       data: {
@@ -68,6 +84,22 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "recordId required" }, { status: 400 });
   }
 
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const existing = await db.maxRecord.findUnique({ where: { id: recordId } });
+  if (!existing) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (existing.userId !== authSession.user.id) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
+  // never let the update payload reassign ownership
+  delete data.userId;
+
   try {
     const record = await db.maxRecord.update({
       where: { id: recordId },
@@ -85,6 +117,19 @@ export async function DELETE(req: NextRequest) {
 
   if (!recordId) {
     return NextResponse.json({ error: "recordId required" }, { status: 400 });
+  }
+
+  const authSession = await auth();
+  if (!authSession?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const existing = await db.maxRecord.findUnique({ where: { id: recordId } });
+  if (!existing) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (existing.userId !== authSession.user.id) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
   try {

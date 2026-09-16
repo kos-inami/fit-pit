@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -73,6 +74,16 @@ export default function BottomNav() {
   const { data: authSession } = useSession();
   const isTrainer = authSession?.user?.roles?.includes("trainer") ?? false;
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!authSession?.user?.id) return;
+    fetch("/api/notifications")
+      .then(r => r.json())
+      .then(json => setUnreadCount(json.unreadCount ?? 0))
+      .catch(() => {});
+  }, [authSession?.user?.id, pathname]);
+
   const tabs = isTrainer
     ? [...STATIC_TABS.slice(0, 3), CLIENTS_TAB, ...STATIC_TABS.slice(3)]
     : STATIC_TABS;
@@ -124,7 +135,12 @@ export default function BottomNav() {
                 gap:            "0.25rem",
               }}
             >
-              {tab.icon}
+              <span className="relative inline-flex">
+                {tab.icon}
+                {tab.href === "/account" && unreadCount > 0 && (
+                  <span className="absolute -top-[2px] -right-[3px] w-[7px] h-[7px] rounded-full" style={{ background: "var(--red)" }} />
+                )}
+              </span>
               {tab.label}
             </Link>
           );

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
@@ -7,6 +8,19 @@ export async function POST(req: NextRequest) {
 
     if (!dayId) {
         return NextResponse.json({ error: "dayId required" }, { status: 400 });
+    }
+
+    const authSession = await auth();
+    if (!authSession?.user?.id) {
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const day = await db.day.findUnique({ where: { id: dayId } });
+    if (!day) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if (day.userId !== authSession.user.id) {
+        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     try {
@@ -42,6 +56,19 @@ export async function DELETE(req: NextRequest) {
 
     if (!dayId) {
         return NextResponse.json({ error: "dayId required" }, { status: 400 });
+    }
+
+    const authSession = await auth();
+    if (!authSession?.user?.id) {
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const day = await db.day.findUnique({ where: { id: dayId } });
+    if (!day) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if (day.userId !== authSession.user.id) {
+        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, use } from "react";
+import { useState, useEffect, useMemo, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import TopNav from "@/components/ui/TopNav";
 import WeekSelector from "@/components/program/WeekSelector";
@@ -39,6 +39,7 @@ interface DBSession {
   result: string | null; notes: string | null;
   rounds: string | null; resultRounds: string | null; planSets: string | null;
   isRestDay: boolean; sets: DBSet[];
+  feedback: { body: string; updatedAt: string } | null;
 }
 interface DBDay {
   id: string; date: string; sessions: DBSession[];
@@ -81,12 +82,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ trainee
       .catch(() => {});
   }, [traineeId]);
 
-  useEffect(() => {
+  const loadDay = useCallback(() => {
     fetch(`/api/trainer/clients/${traineeId}/sessions?date=${selectedDate}`)
       .then(r => r.json())
       .then(json => setDay(json.day ?? null))
       .catch(() => {});
   }, [traineeId, selectedDate]);
+
+  useEffect(() => { loadDay(); }, [loadDay]);
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const weekDayData = weekDates.map((date, i) => ({
@@ -219,7 +222,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ trainee
             <div className="text-[13px]" style={{ color: "var(--mu2)" }}>No sessions this day</div>
           </div>
         ) : (
-          day.sessions.map(s => <ReadOnlySessionCard key={s.id} session={s} />)
+          day.sessions.map(s => <ReadOnlySessionCard key={s.id} session={s} onFeedbackSaved={loadDay} />)
         )}
 
         {/* max records */}
@@ -265,18 +268,89 @@ export default function ClientDetailPage({ params }: { params: Promise<{ trainee
   );
 }
 
-function ReadOnlySessionCard({ session: s }: { session: DBSession }) {
+function FeedbackEditor({ sessionId, feedback, onSaved }: {
+  sessionId: string; feedback: { body: string; updatedAt: string } | null; onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft,   setDraft]   = useState(feedback?.body ?? "");
+  const [saving,  setSaving]  = useState(false);
+
+  const handleSave = async () => {
+    if (!draft.trim()) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/sessions/${sessionId}/feedback`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ body: draft.trim() }),
+      });
+      setEditing(false);
+      onSaved();
+    } catch { /* ignore */ }
+    setSaving(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="mx-4 mb-3 p-[0.5rem] rounded-[8px]" style={{ background: "var(--s2)", border: "1px solid var(--acc)" }}>
+        <textarea
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          rows={3}
+          placeholder="Leave feedback for this session..."
+          className="w-full rounded-[6px] px-2 py-[6px] text-[12px] outline-none resize-none mb-2"
+          style={{ background: "var(--s1)", border: "1px solid var(--br)", color: "var(--tx)", fontFamily: "'DM Mono', monospace" }}
+        />
+        <div className="flex gap-2">
+          <button onClick={handleSave} disabled={saving || !draft.trim()}
+            className="flex-1 rounded-[6px] py-[6px] text-[11px] cursor-pointer"
+            style={{ fontFamily: "'DM Mono', monospace", background: "var(--acc)", border: "none", color: "#000" }}>
+            {saving ? "Saving..." : "Save"}
+          </button>
+          <button onClick={() => { setEditing(false); setDraft(feedback?.body ?? ""); }}
+            className="flex-1 rounded-[6px] py-[6px] text-[11px] cursor-pointer"
+            style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--br2)", color: "var(--mu2)" }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-4 mb-3">
+      {feedback && (
+        <div className="p-[0.5rem] rounded-[8px] mb-2" style={{ background: "var(--s2)", border: "1px solid var(--acc)" }}>
+          <div className="text-[9px] tracking-[1px] uppercase mb-1" style={{ fontFamily: "'DM Mono', monospace", color: "var(--acc)" }}>
+            Your Feedback
+          </div>
+          <p className="text-[12px] whitespace-pre-line" style={{ color: "var(--tx)" }}>{feedback.body}</p>
+        </div>
+      )}
+      <button onClick={() => setEditing(true)}
+        className="text-[11px] cursor-pointer"
+        style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "none", color: "var(--acc)" }}>
+        {feedback ? "Edit Feedback" : "+ Add Feedback"}
+      </button>
+    </div>
+  );
+}
+
+function ReadOnlySessionCard({ session: s, onFeedbackSaved }: { session: DBSession; onFeedbackSaved: () => void }) {
   const planSets     = s.planSets     ? JSON.parse(s.planSets)     : [];
   const rounds       = s.rounds       ? JSON.parse(s.rounds)       : [];
   const resultRounds = s.resultRounds ? JSON.parse(s.resultRounds) : [];
 
   if (s.isRestDay) {
     return (
-      <div className="rounded-[11px] mb-[10px] p-4"
+      <div className="rounded-[11px] mb-[10px] overflow-hidden"
         style={{ background: "var(--s1)", border: "1px solid var(--br2)" }}>
-        <div className="text-[18px] mb-1" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>🛌 {s.name}</div>
-        {s.desc && <div className="text-[13px]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>{s.desc}</div>}
-        {s.notes && <div className="text-[12px] italic mt-2" style={{ color: "var(--mu)" }}>&ldquo;{s.notes}&rdquo;</div>}
+        <div className="p-4">
+          <div className="text-[18px] mb-1" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>🛌 {s.name}</div>
+          {s.desc && <div className="text-[13px]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>{s.desc}</div>}
+          {s.notes && <div className="text-[12px] italic mt-2" style={{ color: "var(--mu)" }}>&ldquo;{s.notes}&rdquo;</div>}
+        </div>
+        <FeedbackEditor sessionId={s.id} feedback={s.feedback} onSaved={onFeedbackSaved} />
       </div>
     );
   }
@@ -342,6 +416,10 @@ function ReadOnlySessionCard({ session: s }: { session: DBSession }) {
           &ldquo;{s.notes}&rdquo;
         </div>
       )}
+
+      <div style={{ borderTop: "1px solid var(--br)" }}>
+        <FeedbackEditor sessionId={s.id} feedback={s.feedback} onSaved={onFeedbackSaved} />
+      </div>
     </div>
   );
 }

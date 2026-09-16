@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { notify } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
     const session = await auth();
@@ -38,6 +39,8 @@ export async function POST(req: NextRequest) {
         create: { trainerId: trainer.id, traineeId, status: "pending" },
         update: { status: "pending", endedAt: null, createdAt: new Date() },
     });
+
+    await notify(trainer.id, "connection_request", relation.id);
 
     return NextResponse.json({ relation });
 }

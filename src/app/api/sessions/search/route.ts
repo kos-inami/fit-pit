@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
@@ -9,6 +10,14 @@ export async function GET(req: NextRequest) {
 
     if (!userId) {
         return NextResponse.json({ error: "userId required" }, { status: 400 });
+    }
+
+    const authSession = await auth();
+    if (!authSession?.user?.id) {
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    if (authSession.user.id !== userId) {
+        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     if (!q && !type) {

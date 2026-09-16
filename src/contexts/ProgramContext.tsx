@@ -25,6 +25,7 @@ export interface ProgSession {
   isRestDay:    boolean;
   source:       string;
   programName:  string | null;
+  feedback:     { body: string; updatedAt: string } | null;
 }
 
 export interface AIResult {
@@ -47,7 +48,7 @@ export interface ProgDay {
 interface ProgramContextType {
   days:           Record<string, ProgDay>;
   getDay:         (date: string) => ProgDay;
-  addSession:     (date: string, s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source" | "programName">) => Promise<void>;
+  addSession:     (date: string, s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source" | "programName" | "feedback">) => Promise<void>;
   editSession:    (date: string, id: string, data: Partial<Pick<ProgSession, "name" | "desc" | "rounds" | "planSets">>) => Promise<void>;
   removeSession:  (date: string, id: string) => Promise<void>;
   saveResult:     (date: string, id: string, data: Partial<Pick<ProgSession, "result" | "notes" | "sets" | "resultRounds">>) => Promise<void>;
@@ -88,6 +89,7 @@ interface DBSession {
   isRestDay:    boolean;
   source:       string;
   assignment:   { program: { name: string } | null } | null;
+  feedback:     { body: string; updatedAt: string } | null;
 }
 
 interface DBRecovery {
@@ -166,6 +168,7 @@ function transformDay(dbDay: DBDay): ProgDay {
       isRestDay:    s.isRestDay,
       source:       s.source,
       programName:  s.assignment?.program?.name ?? null,
+      feedback:     s.feedback ? { body: s.feedback.body, updatedAt: s.feedback.updatedAt } : null,
     })),
     aiSuggestion: dbDay.aiSuggestion ? {
       summary:      dbDay.aiSuggestion.summary,
@@ -245,14 +248,14 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   // ── addSession ───────────────────────────────────────────
   const addSession = useCallback(async (
     date: string,
-    s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source" | "programName">
+    s: Omit<ProgSession, "id" | "aiLoading" | "aiNote" | "source" | "programName" | "feedback">
   ) => {
     if (!userId) return;
     const tempId = `temp_${crypto.randomUUID()}`;
 
     updateDay(date, d => ({
       ...d,
-      sessions: [...d.sessions, { ...s, id: tempId, aiNote: null, aiLoading: false, source: "self", programName: null }],
+      sessions: [...d.sessions, { ...s, id: tempId, aiNote: null, aiLoading: false, source: "self", programName: null, feedback: null }],
     }));
 
     try {

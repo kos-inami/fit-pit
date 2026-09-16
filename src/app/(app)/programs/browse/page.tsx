@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import TopNav from "@/components/ui/TopNav";
 import EnrollSheet from "@/components/program/EnrollSheet";
 
@@ -13,6 +14,7 @@ interface Connection {
 }
 interface EnrollmentRow {
     id: string; status: string; startDate: string;
+    previousAssignmentId: string | null;
     program: { id: string; name: string; trainerId: string };
 }
 
@@ -140,20 +142,30 @@ export default function BrowseProgramsPage() {
                                         {e.status} · from {e.startDate}
                                     </div>
                                 </div>
-                                {e.status === "active" && (
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleAction(e, "complete")} disabled={busy}
-                                            className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
-                                            style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--grn)", color: "var(--grn)" }}>
-                                            Complete
-                                        </button>
-                                        <button onClick={() => handleAction(e, "cancel")} disabled={busy}
-                                            className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
-                                            style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--red)", color: "var(--red)" }}>
-                                            Cancel
-                                        </button>
-                                    </div>
-                                )}
+                                <div className="flex gap-2 items-center">
+                                    {e.previousAssignmentId && (
+                                        <Link href={`/programs/${e.program.id}/compare/${e.id}`} style={{ textDecoration: "none" }}>
+                                            <span className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
+                                                style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--acc)", color: "var(--acc)" }}>
+                                                Compare →
+                                            </span>
+                                        </Link>
+                                    )}
+                                    {e.status === "active" && (
+                                        <>
+                                            <button onClick={() => handleAction(e, "complete")} disabled={busy}
+                                                className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
+                                                style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--grn)", color: "var(--grn)" }}>
+                                                Complete
+                                            </button>
+                                            <button onClick={() => handleAction(e, "cancel")} disabled={busy}
+                                                className="text-[10px] px-2 py-[4px] rounded-full cursor-pointer"
+                                                style={{ fontFamily: "'DM Mono', monospace", background: "none", border: "1px solid var(--red)", color: "var(--red)" }}>
+                                                Cancel
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>

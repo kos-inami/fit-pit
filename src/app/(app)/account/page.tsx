@@ -72,6 +72,29 @@ interface Connection {
   trainer:   { id: string; name: string };
 }
 
+interface NotificationRow {
+  id: string; type: string; refId: string;
+  readAt: string | null; createdAt: string;
+}
+
+const NOTIFICATION_LABEL: Record<string, string> = {
+  feedback:             "🎯 Your coach left feedback on a session",
+  assignment:           "📋 Your coach assigned you a new program",
+  connection_request:   "🔗 A trainee wants to connect",
+  connection_accepted:  "✅ Your trainer connection was approved",
+};
+
+function timeAgo(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function AccountPage() {
   const { data: authSession, update: updateSession } = useSession();
   const userId    = authSession?.user?.id;
@@ -100,8 +123,6 @@ export default function AccountPage() {
   });
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
-  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
-  const [testError,  setTestError]  = useState("");
 
   const [roles,       setRoles]       = useState<string[]>([]);
   const [inviteCode,  setInviteCode]  = useState<string | null>(null);
@@ -117,6 +138,8 @@ export default function AccountPage() {
   const [connecting,    setConnecting]    = useState(false);
   const [connectError,  setConnectError]  = useState("");
   const [endingConn,    setEndingConn]    = useState(false);
+
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
 
   const isTrainer = roles.includes("trainer");
 
@@ -158,9 +181,22 @@ export default function AccountPage() {
       .catch(() => {});
   }, [userId]);
 
+  useEffect(() => {
+    if (!userId) return;
+    fetch("/api/notifications")
+      .then(r => r.json())
+      .then(json => {
+        const rows = (json.notifications ?? []) as NotificationRow[];
+        setNotifications(rows);
+        if (rows.some(n => !n.readAt)) {
+          fetch("/api/notifications/read", { method: "POST" }).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, [userId]);
+
   const setField = (key: ProfileKey, value: string) => {
     setProfile(prev => ({ ...prev, [key]: value }));
-    if (key === "geminiKey") setTestStatus("idle");
   };
 
   const handleSave = async () => {
@@ -174,29 +210,6 @@ export default function AccountPage() {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  };
-
-  const handleTestAI = async () => {
-    if (!userId) return;
-    setTestStatus("testing");
-    setTestError("");
-    try {
-      const res  = await fetch("/api/ai/test", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ userId }),
-      });
-      const json = await res.json();
-      if (res.ok) {
-        setTestStatus("ok");
-      } else {
-        setTestStatus("fail");
-        setTestError(json.error ?? "Unknown error");
-      }
-    } catch {
-      setTestStatus("fail");
-      setTestError("Network error");
-    }
   };
 
   const handleEnableTrainer = async () => {
@@ -326,6 +339,28 @@ export default function AccountPage() {
             </div>
           </div>
         </div>
+
+        {/* notifications */}
+        {notifications.length > 0 && (
+          <>
+            <SectionLabel>Notifications</SectionLabel>
+            <div className="rounded-[12px] overflow-hidden mb-5"
+              style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
+              {notifications.map((n, i) => (
+                <div key={n.id} className="px-4 py-3"
+                  style={{
+                    borderBottom: i < notifications.length - 1 ? "1px solid var(--br)" : "none",
+                    background:   n.readAt ? "transparent" : "var(--s2)",
+                  }}>
+                  <div className="text-[13px]">{NOTIFICATION_LABEL[n.type] ?? n.type}</div>
+                  <div className="text-[10px]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
+                    {timeAgo(n.createdAt)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* stats */}
         <SectionLabel>Overall</SectionLabel>
@@ -470,122 +505,6 @@ export default function AccountPage() {
               />
             </div>
           ))}
-        </div>
-
-        {/* AI coaching */}
-        <SectionLabel>AI Coaching</SectionLabel>
-        <div className="rounded-[12px] px-4 mb-5"
-          style={{ background: "var(--s1)", border: "1px solid var(--br)" }}>
-          <div className="py-[14px]">
-
-            {/* header row */}
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[10px] tracking-[1.5px] uppercase"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                Gemini API Key
-              </label>
-              <a 
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[10px] tracking-[1px] uppercase"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--acc)", textDecoration: "none" }}
-              >
-                Get free key →
-              </a>
-            </div>
-
-            {/* key input */}
-            <input
-              type="password"
-              placeholder="AIza..."
-              value={profile.geminiKey}
-              onChange={e => setField("geminiKey", e.target.value)}
-              className="w-full rounded-[8px] px-3 py-[10px] text-[13px] outline-none mb-2"
-              style={{
-                background: "var(--s2)",
-                border:     "1px solid var(--br)",
-                color:      "var(--tx)",
-                fontFamily: "'DM Mono', monospace",
-              }}
-            />
-
-            {/* status dot */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-[7px] h-[7px] rounded-full flex-shrink-0"
-                style={{
-                  background:
-                    testStatus === "ok"   ? "var(--grn)" :
-                    testStatus === "fail" ? "var(--red)"  :
-                    profile.geminiKey     ? "var(--acc)"  : "var(--br2)",
-                }}
-              />
-              <span className="text-[11px]"
-                style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                {testStatus === "ok"   ? "Connected — AI coaching ready" :
-                 testStatus === "fail" ? `Failed — ${testError}`         :
-                 profile.geminiKey     ? "Key saved — tap Test to verify" :
-                 "No key — AI coaching disabled"}
-              </span>
-            </div>
-
-            {/* test button */}
-            {profile.geminiKey && (
-              <button
-                onClick={handleTestAI}
-                disabled={testStatus === "testing"}
-                className="w-full rounded-[8px] py-[9px] text-[12px] tracking-[1px] cursor-pointer"
-                style={{
-                  fontFamily: "'DM Mono', monospace",
-                  background:
-                    testStatus === "ok"      ? "#001a0d"       :
-                    testStatus === "fail"    ? "#1a0000"       :
-                    testStatus === "testing" ? "var(--s2)"     : "var(--s2)",
-                  border:
-                    testStatus === "ok"   ? "1px solid var(--grn)" :
-                    testStatus === "fail" ? "1px solid var(--red)"  :
-                    "1px solid var(--br2)",
-                  color:
-                    testStatus === "ok"      ? "var(--grn)" :
-                    testStatus === "fail"    ? "var(--red)"  :
-                    testStatus === "testing" ? "var(--mu)"   : "var(--mu2)",
-                }}
-              >
-                {testStatus === "testing" ? "Testing connection..." :
-                 testStatus === "ok"      ? "✓ Connection successful" :
-                 testStatus === "fail"    ? "✗ Test failed — retry"   : "Test Connection"}
-              </button>
-            )}
-
-            {/* how to get key guide */}
-            {!profile.geminiKey && (
-              <div className="mt-3 rounded-[8px] p-3"
-                style={{ background: "var(--s2)", border: "1px solid var(--br)" }}>
-                <div className="text-[10px] tracking-[1px] uppercase mb-2"
-                  style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu)" }}>
-                  How to get your free key
-                </div>
-                {[
-                  "Go to aistudio.google.com",
-                  "Sign in with Google",
-                  "Click Get API Key",
-                  "Create new key → Copy",
-                  "Paste above and Save",
-                ].map((step, i) => (
-                  <div key={i} className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] w-[16px] h-[16px] rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ background: "var(--s1)", color: "var(--acc)", fontFamily: "'Bebas Neue', sans-serif" }}>
-                      {i + 1}
-                    </span>
-                    <span className="text-[11px]"
-                      style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>
-                      {step}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* coaching — trainer mode */}
