@@ -9,6 +9,7 @@ import { SESSION_TYPE_META, SessionType } from "@/types";
 import { RecordEntry, CATEGORY_META, getBestLabel, getLastDate } from "@/lib/records";
 import { getLocalDateString, getTodayString } from "@/lib/utils";
 import { FEELINGS } from "@/lib/feelings";
+import AssignLibrarySessionSheet from "@/components/program/AssignLibrarySessionSheet";
 
 const TODAY_STR   = getTodayString();
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
@@ -61,6 +62,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ trainee
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
   const [ending,  setEnding]  = useState(false);
+  const [assignLibraryOpen, setAssignLibraryOpen] = useState(false);
 
   useEffect(() => {
     fetch(`/api/trainer/clients/${traineeId}`)
@@ -174,6 +176,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ trainee
               {client.age    && <span className="text-[11px]" style={{ fontFamily: "'DM Mono', monospace", color: "var(--mu2)" }}>{client.age}yo</span>}
             </div>
           )}
+          <button
+            onClick={() => setAssignLibraryOpen(true)}
+            className="w-full mt-3 rounded-[8px] py-[9px] text-[12px] cursor-pointer"
+            style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px solid var(--acc)", color: "var(--acc)" }}
+          >
+            Assign from Library →
+          </button>
         </div>
 
         {/* week selector */}
@@ -245,6 +254,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ trainee
         )}
 
       </main>
+
+      <AssignLibrarySessionSheet
+        open={assignLibraryOpen}
+        onClose={() => setAssignLibraryOpen(false)}
+        traineeId={traineeId}
+        onAssigned={loadDay}
+      />
     </>
   );
 }

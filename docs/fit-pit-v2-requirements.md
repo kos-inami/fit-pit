@@ -393,6 +393,7 @@ WOD · Strength · WL · Zone · Run · Accessories · Swim · Other
 - Edit, remove or copy sessions they assigned.
 - Leave feedback on a client's logged session or rest day.
 - Approve or decline incoming connection requests.
+- Build and manage a personal session library, grouped by category; use it inside programs and assign it directly to a client.
 
 ### Admin
 
@@ -447,5 +448,52 @@ Steps 1–5 are safe to ship before any trainer UI exists.
 4. **Phase D** — open programs and self-enrolment.
 5. **Phase E** — feedback, notifications, run comparison.
 6. **Phase F** — algorithmic suggestions.
+7. **Phase G** — trainer session library.
 
 Phase A ships with visible value on its own (trainee rest days) while laying the groundwork for everything after it.
+
+---
+
+## 12. Session library
+
+A trainer's personal collection of reusable session templates — no separate "collection" entity, the existing `SessionType` categories (§8) **are** the grouping. Not visible to trainees directly; it only surfaces through what a trainer builds or assigns from it.
+
+```
+LibrarySession {
+  trainerId
+  type               → SessionType key, never "rest"
+  name
+  desc
+  planSets           → JSON, same unresolved template shape as ProgramSession
+  rounds             → JSON
+  referenceMovement  → matches a trainee's MaxRecord by name at assignment time
+  order
+  createdAt
+  updatedAt
+}
+```
+
+### Browsing
+
+Categories come from the live `SessionType` table (`active: true`, ordered by `order`), not the frontend's cached constant — an admin deactivating a category hides it from the library's tabs immediately.
+
+### Create, edit, duplicate, delete
+
+Reuses the same session-content form the program builder already has (type picker, sets/rounds/text by behavior) — there is no second form to keep in sync.
+
+Duplicate copies every field into a new row owned by the same trainer, with `" (copy)"` appended to the name. Delete has no guards: nothing else holds a foreign key to a `LibrarySession` row, so deleting one can never orphan or break a program or an assigned session.
+
+### Two ways to use one
+
+| Path | Effect |
+|---|---|
+| Copy into a program | Picked from "Add from Library" in the program builder. Fields are copied into a new `ProgramSession` — no ongoing link. Editing the library entry afterward never touches programs already built from it. |
+| Assign directly to a trainee | Trainer picks a client + date, from the library or from that client's detail view. Creates one real `Session` with `source: "trainer"`, `createdById` = the trainer, and **`assignmentId: null`** — there is no `Program` or `ProgramAssignment` involved. Percentages resolve against that trainee's current max records at assignment time, freezing `maxWeight`, using the exact same resolution function whole-program generation uses. |
+
+A library-assigned session is otherwise an ordinary `source: "trainer"` session: Edit Plan and Copy stay locked, Log Result and Delete stay open (§3), and it carries the generic "Trainer Assigned" marker since there's no program name to show.
+
+### Authorization
+
+- Every library route verifies the calling trainer owns the `LibrarySession` — the same nested-ownership check used for programs (§5), applied at one level.
+- Direct assignment additionally requires an **active** `TrainerClient` link to the target trainee, checked server-side, never inferred from the UI having shown that client in a picker.
+- "Add from Library" inside a program checks program ownership, the day's nested ownership, **and** that the library session belongs to that same trainer — two independent ownership checks, since owning the program says nothing about owning the library entry being copied from.

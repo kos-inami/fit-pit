@@ -48,3 +48,13 @@ export async function getOwnedProgramSession(programId: string, sessionId: strin
     });
     return programSession && programSession.day.week.programId === programId ? programSession : null;
 }
+
+/**
+ * The single place that decides whether a trainer may read/write a library
+ * session. Every route under /api/library/[id]/** must call this before
+ * touching anything — never trust a client-supplied id for this decision.
+ */
+export async function getOwnedLibrarySession(trainerId: string, id: string) {
+    const librarySession = await db.librarySession.findUnique({ where: { id } });
+    return librarySession && librarySession.trainerId === trainerId ? librarySession : null;
+}

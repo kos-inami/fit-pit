@@ -8,6 +8,8 @@ import { Input, Textarea } from "@/components/ui/Input";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import ProgramSessionSheet, { ProgramSessionData } from "@/components/program/ProgramSessionSheet";
 import AssignSheet from "@/components/program/AssignSheet";
+import Sheet from "@/components/ui/Sheet";
+import LibrarySessionPicker, { LibraryRow } from "@/components/program/LibrarySessionPicker";
 import { SESSION_TYPE_META, SessionType, TemplateSetLog, RoundEntry } from "@/types";
 
 const DAY_LETTERS = ["M","T","W","T","F","S","S"];
@@ -54,6 +56,7 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
 
     const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
     const [sessionSheet, setSessionSheet] = useState<{ dayId: string; edit: (ProgramSessionData & { id: string }) | null } | null>(null);
+    const [libraryPickerDayId, setLibraryPickerDayId] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [confirmDeleteProgram, setConfirmDeleteProgram] = useState(false);
     const [assignmentDeletePreview, setAssignmentDeletePreview] = useState<{
@@ -141,6 +144,19 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
         });
         await load();
         showFlash("Session added");
+    };
+
+    const handleAddFromLibrary = async (librarySession: LibraryRow) => {
+        if (!libraryPickerDayId || !program) return;
+        const week = program.weeks.find(w => w.days.some(d => d.id === libraryPickerDayId));
+        if (!week) return;
+        await fetch(`/api/programs/${programId}/weeks/${week.id}/days/${libraryPickerDayId}/sessions/from-library`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ librarySessionId: librarySession.id }),
+        });
+        setLibraryPickerDayId(null);
+        await load();
+        showFlash("Session added from library");
     };
 
     const handleSessionSheetAdd = (data: ProgramSessionData) => {
@@ -391,13 +407,22 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                                                 </div>
                                             );
                                         })}
-                                        <button
-                                            onClick={() => setSessionSheet({ dayId: day.id, edit: null })}
-                                            className="w-full rounded-[8px] py-[9px] text-[11px] tracking-[1px] cursor-pointer"
-                                            style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px dashed var(--br2)", color: "var(--mu2)" }}
-                                        >
-                                            + Add Session
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setSessionSheet({ dayId: day.id, edit: null })}
+                                                className="flex-1 rounded-[8px] py-[9px] text-[11px] tracking-[1px] cursor-pointer"
+                                                style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px dashed var(--br2)", color: "var(--mu2)" }}
+                                            >
+                                                + Add Session
+                                            </button>
+                                            <button
+                                                onClick={() => setLibraryPickerDayId(day.id)}
+                                                className="flex-1 rounded-[8px] py-[9px] text-[11px] tracking-[1px] cursor-pointer"
+                                                style={{ fontFamily: "'DM Mono', monospace", background: "transparent", border: "1px dashed var(--acc)", color: "var(--acc)" }}
+                                            >
+                                                + Add from Library
+                                            </button>
+                                        </div>
                                     </>
                                 )}
                             </div>
@@ -475,6 +500,10 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
                 onEdit={handleEditSession}
                 onDelete={sessionSheet?.edit ? () => { setConfirmDeleteId(sessionSheet.edit!.id); setSessionSheet(null); } : undefined}
             />
+
+            <Sheet open={libraryPickerDayId !== null} onClose={() => setLibraryPickerDayId(null)} title="Add from Library">
+                <LibrarySessionPicker onSelect={handleAddFromLibrary} />
+            </Sheet>
 
             <ConfirmDialog
                 open={confirmDeleteId !== null}

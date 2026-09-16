@@ -29,6 +29,39 @@ export async function buildMaxRecordMap(tx: TxClient, traineeId: string): Promis
     return map;
 }
 
+/**
+ * Resolves a template's planSets against a trainee's max-record map, freezing
+ * maxWeight into each entry — the one place this math happens, shared by
+ * whole-week program generation and single-session library assignment.
+ * Returns null for non-`useSets` types or when there's nothing to resolve.
+ */
+export function resolvePlanSets(
+    type:              string,
+    planSetsJson:      string | null,
+    referenceMovement: string | null,
+    maxRecordMap:      Map<string, number>,
+): string | null {
+    const meta = SESSION_TYPE_META[type as SessionType] as
+        typeof SESSION_TYPE_META[SessionType] | undefined;
+    if (!meta?.useSets || !planSetsJson) return null;
+
+    const template = JSON.parse(planSetsJson) as TemplateSetLog[];
+    const maxWeight = referenceMovement
+        ? maxRecordMap.get(referenceMovement) ?? null
+        : null;
+    const resolved = template.map(t => ({
+        setNumber:  t.setNumber,
+        percentage: t.percentage,
+        weight:     t.percentage != null && maxWeight != null
+            ? calcFromPercent(t.percentage, maxWeight)
+            : null,
+        maxWeight,
+        reps:  t.reps,
+        notes: t.notes ?? "",
+    }));
+    return JSON.stringify(resolved);
+}
+
 interface GenerateParams {
     tx:           TxClient;
     programId:    string;
@@ -107,27 +140,7 @@ export async function generateForWeekRange(params: GenerateParams): Promise<numb
             }
 
             for (const ps of day.sessions) {
-                const meta = SESSION_TYPE_META[ps.type as SessionType] as
-                    typeof SESSION_TYPE_META[SessionType] | undefined;
-
-                let planSets: string | null = null;
-                if (meta?.useSets && ps.planSets) {
-                    const template = JSON.parse(ps.planSets) as TemplateSetLog[];
-                    const maxWeight = ps.referenceMovement
-                        ? maxRecordMap.get(ps.referenceMovement) ?? null
-                        : null;
-                    const resolved = template.map(t => ({
-                        setNumber:  t.setNumber,
-                        percentage: t.percentage,
-                        weight:     t.percentage != null && maxWeight != null
-                            ? calcFromPercent(t.percentage, maxWeight)
-                            : null,
-                        maxWeight,
-                        reps:  t.reps,
-                        notes: t.notes ?? "",
-                    }));
-                    planSets = JSON.stringify(resolved);
-                }
+                const planSets = resolvePlanSets(ps.type, ps.planSets, ps.referenceMovement, maxRecordMap);
 
                 sessionRows.push({
                     dayId:       realDayId,
@@ -234,4 +247,55 @@ export async function assignProgramToTrainee(params: AssignParams): Promise<Assi
     }, { timeout: 15000 });
 
     return { ok: true, ...result };
+}
+
+interface LibraryAssignParams {
+    trainerId: string; // createdById on the generated session
+    traineeId: string;
+    date:      string;
+    library: {
+        type:              string;
+        name:              string;
+        desc:              string | null;
+        planSets:          string | null;
+        rounds:            string | null;
+        referenceMovement: string | null;
+    };
+}
+
+/**
+ * Assigns a single library session directly to a trainee's calendar — no
+ * program, no assignment. Reuses the same buildMaxRecordMap/resolvePlanSets
+ * pair as program generation so a library-assigned session resolves
+ * percentages identically to one generated from a program.
+ */
+export async function generateLibrarySessionForTrainee(params: LibraryAssignParams) {
+    const { trainerId, traineeId, date, library } = params;
+
+    return db.$transaction(async (tx) => {
+        const day = await tx.day.upsert({
+            where:  { userId_date: { userId: traineeId, date } },
+            create: { userId: traineeId, date },
+            update: {},
+        });
+
+        const maxRecordMap = await buildMaxRecordMap(tx, traineeId);
+        const planSets = resolvePlanSets(library.type, library.planSets, library.referenceMovement, maxRecordMap);
+
+        return tx.session.create({
+            data: {
+                dayId:       day.id,
+                type:        library.type,
+                name:        library.name,
+                desc:        library.desc,
+                planSets,
+                rounds:      library.rounds,
+                order:       0,
+                isRestDay:   false,
+                source:      "trainer",
+                createdById: trainerId,
+                assignmentId: null,
+            },
+        });
+    });
 }
